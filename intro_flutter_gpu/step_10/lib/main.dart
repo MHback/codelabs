@@ -51,12 +51,12 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
       home: Scaffold(
         body: SizedBox.expand(
           child: AnimatedBuilder(
+            animation: _animation,
             builder: (context, child) {
               return CustomPaint(
                 painter: TrianglePainter(angle: _animation.value),
               );
             },
-            animation: _animation,
           ),
         ),
       ),
@@ -75,9 +75,6 @@ class TrianglePainter extends CustomPainter {
       size.width.ceil(),
       size.height.ceil(),
     );
-    if (texture == null) {
-      throw Exception('Failed to create texture');
-    }
 
     final renderTarget = gpu.RenderTarget.singleColor(
       gpu.ColorAttachment(texture: texture),
@@ -99,64 +96,11 @@ class TrianglePainter extends CustomPainter {
     final pipeline = gpu.gpuContext.createRenderPipeline(vert, frag);
 
     const floatsPerVertex = 6;
-    final vertices = Float32List.fromList([
-      // layout: x, y, z, r, g, b
-
-      // Back Face
-      -0.5, -0.5, -0.5, 1.0, 0.0, 0.0,
-      0.5, -0.5, -0.5, 0.0, 1.0, 0.0,
-      0.5, 0.5, -0.5, 0.0, 0.0, 1.0,
-      0.5, 0.5, -0.5, 0.0, 0.0, 1.0,
-      -0.5, 0.5, -0.5, 1.0, 1.0, 0.0,
-      -0.5, -0.5, -0.5, 1.0, 0.0, 0.0,
-
-      // Front Face
-      -0.5, -0.5, 0.5, 1.0, 0.0, 0.0,
-      0.5, 0.5, 0.5, 0.0, 0.0, 1.0,
-      0.5, -0.5, 0.5, 0.0, 1.0, 0.0,
-      0.5, 0.5, 0.5, 0.0, 0.0, 1.0,
-      -0.5, -0.5, 0.5, 1.0, 0.0, 0.0,
-      -0.5, 0.5, 0.5, 1.0, 1.0, 0.0,
-
-      // Left Face
-      -0.5, 0.5, 0.5, 1.0, 0.0, 0.0,
-      -0.5, -0.5, -0.5, 0.0, 0.0, 1.0,
-      -0.5, 0.5, -0.5, 0.0, 1.0, 0.0,
-      -0.5, -0.5, -0.5, 0.0, 0.0, 1.0,
-      -0.5, 0.5, 0.5, 1.0, 0.0, 0.0,
-      -0.5, -0.5, 0.5, 1.0, 1.0, 0.0,
-
-      // Right Face
-      0.5, 0.5, 0.5, 1.0, 0.0, 0.0,
-      0.5, 0.5, -0.5, 0.0, 1.0, 0.0,
-      0.5, -0.5, -0.5, 0.0, 0.0, 1.0,
-      0.5, -0.5, -0.5, 0.0, 0.0, 1.0,
-      0.5, -0.5, 0.5, 1.0, 1.0, 0.0,
-      0.5, 0.5, 0.5, 1.0, 0.0, 0.0,
-
-      // Bottom Face
-      0.5, -0.5, -0.5, 0.0, 1.0, 0.0,
-      -0.5, -0.5, -0.5, 1.0, 0.0, 0.0,
-      0.5, -0.5, 0.5, 0.0, 0.0, 1.0,
-      -0.5, -0.5, 0.5, 1.0, 1.0, 0.0,
-      0.5, -0.5, 0.5, 0.0, 0.0, 1.0,
-      -0.5, -0.5, -0.5, 1.0, 0.0, 0.0,
-
-      // Top Face
-      -0.5, 0.5, -0.5, 1.0, 0.0, 0.0,
-      0.5, 0.5, -0.5, 0.0, 1.0, 0.0,
-      0.5, 0.5, 0.5, 0.0, 0.0, 1.0,
-      0.5, 0.5, 0.5, 0.0, 0.0, 1.0,
-      -0.5, 0.5, 0.5, 1.0, 1.0, 0.0,
-      -0.5, 0.5, -0.5, 1.0, 0.0, 0.0,
-    ]);
+    final vertices = cubeVertices;
 
     final verticesDeviceBuffer = gpu.gpuContext.createDeviceBufferWithCopy(
       ByteData.sublistView(vertices),
     );
-    if (verticesDeviceBuffer == null) {
-      throw Exception('Failed to create vertices device buffer');
-    }
 
     final model = vm.Matrix4.rotationY(angle);
     final view = vm.Matrix4.translation(vm.Vector3(0.0, 0.0, -2.0));
@@ -164,7 +108,7 @@ class TrianglePainter extends CustomPainter {
       vm.radians(45),
       size.aspectRatio,
       0.1,
-      100,
+      100.0,
     );
 
     final vertUniforms = [model, view, projection];
@@ -175,12 +119,9 @@ class TrianglePainter extends CustomPainter {
       ),
     );
 
-    if (vertUniformsDeviceBuffer == null) {
-      throw Exception('Failed to create vert uniforms device buffer');
-    }
-
     renderPass.bindPipeline(pipeline);
 
+    // Add back-face culling
     renderPass.setCullMode(gpu.CullMode.backFace);
 
     final verticesView = gpu.BufferView(
@@ -210,4 +151,42 @@ class TrianglePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+
+  static const List<List<double>> vertices = [
+    // Vertex format: [x, y, z, u, v, w]
+
+    // Front face of cube
+    [-0.5, -0.5, 0.5, 0.0, 0.0, 1.0],
+    [0.5, -0.5, 0.5, 1.0, 0.0, 1.0],
+    [0.5, 0.5, 0.5, 1.0, 1.0, 1.0],
+    [-0.5, 0.5, 0.5, 0.0, 1.0, 1.0],
+
+    // Back face of cube
+    [-0.5, -0.5, -0.5, 0.0, 0.0, 0.0],
+    [0.5, -0.5, -0.5, 1.0, 0.0, 0.0],
+    [0.5, 0.5, -0.5, 1.0, 1.0, 0.0],
+    [-0.5, 0.5, -0.5, 0.0, 1.0, 0.0],
+  ];
+
+  // Define indices for triangles (counter-clockwise winding)
+  static const List<int> indices = [
+    // Front face
+    0, 2, 1, 0, 3, 2,
+    // Back face
+    4, 5, 6, 4, 6, 7,
+    // Left face
+    0, 4, 7, 0, 7, 3,
+    // Right face
+    1, 2, 6, 1, 6, 5,
+    // Bottom face
+    0, 1, 5, 0, 5, 4,
+    // Top face
+    3, 7, 6, 3, 6, 2,
+  ];
+
+  /// Flattened vertex data ready for insertion in graphics buffer.
+  /// The vertex format is `[x, y, z, u, v, w]`.
+  static final Float32List cubeVertices = Float32List.fromList([
+    for (final index in indices) ...vertices[index],
+  ]);
 }

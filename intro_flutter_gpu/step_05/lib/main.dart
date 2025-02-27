@@ -38,9 +38,6 @@ class TrianglePainter extends CustomPainter {
       size.width.ceil(),
       size.height.ceil(),
     );
-    if (texture == null) {
-      throw Exception('Failed to create texture');
-    }
 
     final renderTarget = gpu.RenderTarget.singleColor(
       gpu.ColorAttachment(texture: texture),
@@ -61,26 +58,23 @@ class TrianglePainter extends CustomPainter {
 
     final pipeline = gpu.gpuContext.createRenderPipeline(vert, frag);
 
-    const floatsPerVertex = 4;
+    const floatsPerVertex = 4; // Now 2 for position + 2 for UV
     final vertices = Float32List.fromList([
-      // Format: x, y, u, v,
+      // Format: x, y, u, v
 
-      // Traingle #1
-      -0.5, -0.5, 0.0, 0.0, // bottom left
-      0.5, -0.5, 1.0, 0.0, // bottom right
-      -0.5, 0.5, 0.0, 1.0, // top left
-      // Traingle #2
-      0.5, -0.5, 1.0, 0.0, // bottom right
-      0.5, 0.5, 1.0, 1.0, // top right
-      -0.5, 0.5, 0.0, 1.0, // top left
+      // Triangle #1
+      -0.5, -0.5, 0.0, 0.0,
+      0.5, -0.5, 1.0, 0.0,
+      -0.5, 0.5, 0.0, 1.0,
+      // Triangle #2
+      0.5, -0.5, 1.0, 0.0,
+      0.5, 0.5, 1.0, 1.0,
+      -0.5, 0.5, 0.0, 1.0,
     ]);
 
     final verticesDeviceBuffer = gpu.gpuContext.createDeviceBufferWithCopy(
       ByteData.sublistView(vertices),
     );
-    if (verticesDeviceBuffer == null) {
-      throw Exception('Failed to create vertices device buffer');
-    }
 
     renderPass.bindPipeline(pipeline);
 

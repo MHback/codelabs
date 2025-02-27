@@ -50,7 +50,8 @@ function ci_codelabs () {
 
                     # intro_flutter_gpu only runs with Impeller
                     if [ $CODELAB = 'intro_flutter_gpu' ]; then
-                        if [ $RUNNER_OS = 'macOS' ] || [ $RUNNER_OS = 'Windows' ]; then
+                        # Skipping Windows: https://github.com/bdero/flutter_scene/issues/55
+                        if [ $RUNNER_OS = 'macOS' ] || [ $RUNNER_OS = 'Linux' ]; then
                             flutter config --enable-native-assets
                             flutter build `echo $RUNNER_OS | tr '[:upper:]' '[:lower:]'` --debug
                             flutter test --enable-impeller

@@ -1,5 +1,3 @@
-// ignore_for_file: avoid_print
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -19,10 +17,10 @@ import 'firebase_notifier.dart';
 class DashPurchases extends ChangeNotifier {
   DashCounter counter;
   FirebaseNotifier firebaseNotifier;
-  IAPRepo iapRepo;
   StoreState storeState = StoreState.loading;
   late StreamSubscription<List<PurchaseDetails>> _subscription;
   List<PurchasableProduct> products = [];
+  IAPRepo iapRepo;
 
   bool get beautifiedDash => _beautifiedDashUpgrade;
   bool _beautifiedDashUpgrade = false;
@@ -46,7 +44,6 @@ class DashPurchases extends ChangeNotifier {
       notifyListeners();
       return;
     }
-
     const ids = <String>{
       storeKeyConsumable,
       storeKeySubscription,
@@ -61,8 +58,8 @@ class DashPurchases extends ChangeNotifier {
 
   @override
   void dispose() {
-    iapRepo.removeListener(purchasesUpdate);
     _subscription.cancel();
+    iapRepo.removeListener(purchasesUpdate);
     super.dispose();
   }
 
@@ -76,12 +73,15 @@ class DashPurchases extends ChangeNotifier {
         await iapConnection.buyNonConsumable(purchaseParam: purchaseParam);
       default:
         throw ArgumentError.value(
-            product.productDetails, '${product.id} is not a known product');
+          product.productDetails,
+          '${product.id} is not a known product',
+        );
     }
   }
 
   Future<void> _onPurchaseUpdate(
-      List<PurchaseDetails> purchaseDetailsList) async {
+    List<PurchaseDetails> purchaseDetailsList,
+  ) async {
     for (var purchaseDetails in purchaseDetailsList) {
       await _handlePurchase(purchaseDetails);
     }
@@ -129,10 +129,8 @@ class DashPurchases extends ChangeNotifier {
       headers: headers,
     );
     if (response.statusCode == 200) {
-      print('Successfully verified purchase');
       return true;
     } else {
-      print('failed request: ${response.statusCode} - ${response.body}');
       return false;
     }
   }
@@ -142,7 +140,7 @@ class DashPurchases extends ChangeNotifier {
   }
 
   void _updateStreamOnError(dynamic error) {
-    print(error);
+    //Handle error here
   }
 
   void purchasesUpdate() {
@@ -151,38 +149,43 @@ class DashPurchases extends ChangeNotifier {
     // Get a list of purchasable products for the subscription and upgrade.
     // This should be 1 per type.
     if (products.isNotEmpty) {
-      subscriptions = products
-          .where((element) => element.productDetails.id == storeKeySubscription)
-          .toList();
-      upgrades = products
-          .where((element) => element.productDetails.id == storeKeyUpgrade)
-          .toList();
+      subscriptions =
+          products
+              .where(
+                (element) => element.productDetails.id == storeKeySubscription,
+              )
+              .toList();
+      upgrades =
+          products
+              .where((element) => element.productDetails.id == storeKeyUpgrade)
+              .toList();
     }
 
     // Set the subscription in the counter logic and show/hide purchased on the
     // purchases page.
     if (iapRepo.hasActiveSubscription) {
       counter.applyPaidMultiplier();
-      for (final element in subscriptions) {
+      for (var element in subscriptions) {
         _updateStatus(element, ProductStatus.purchased);
       }
     } else {
       counter.removePaidMultiplier();
-      for (final element in subscriptions) {
+      for (var element in subscriptions) {
         _updateStatus(element, ProductStatus.purchasable);
       }
     }
 
-    // Set the dash beautifier and show/hide purchased on
+    // Set the Dash beautifier and show/hide purchased on
     // the purchases page.
     if (iapRepo.hasUpgrade != _beautifiedDashUpgrade) {
       _beautifiedDashUpgrade = iapRepo.hasUpgrade;
-      for (final element in upgrades) {
+      for (var element in upgrades) {
         _updateStatus(
-            element,
-            _beautifiedDashUpgrade
-                ? ProductStatus.purchased
-                : ProductStatus.purchasable);
+          element,
+          _beautifiedDashUpgrade
+              ? ProductStatus.purchased
+              : ProductStatus.purchasable,
+        );
       }
       notifyListeners();
     }

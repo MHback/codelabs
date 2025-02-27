@@ -16,10 +16,8 @@ class DocumentApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: ThemeData(useMaterial3: true),
-      home: DocumentScreen(
-        document: Document(),
-      ),
+      theme: ThemeData(),
+      home: DocumentScreen(document: Document()),
     );
   }
 }
@@ -27,28 +25,15 @@ class DocumentApp extends StatelessWidget {
 class DocumentScreen extends StatelessWidget {
   final Document document;
 
-  const DocumentScreen({
-    required this.document,
-    super.key,
-  });
+  const DocumentScreen({required this.document, super.key});
 
   @override
   Widget build(BuildContext context) {
     final (title, :modified) = document.metadata;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
-      body: Column(
-        children: [
-          Center(
-            child: Text(
-              'Last modified $modified',
-            ),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(title)),
+      body: Column(children: [Center(child: Text('Last modified $modified'))]),
     );
   }
 }

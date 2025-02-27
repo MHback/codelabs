@@ -51,12 +51,12 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
       home: Scaffold(
         body: SizedBox.expand(
           child: AnimatedBuilder(
+            animation: _animation,
             builder: (context, child) {
               return CustomPaint(
                 painter: TrianglePainter(angle: _animation.value),
               );
             },
-            animation: _animation,
           ),
         ),
       ),
@@ -75,9 +75,6 @@ class TrianglePainter extends CustomPainter {
       size.width.ceil(),
       size.height.ceil(),
     );
-    if (texture == null) {
-      throw Exception('Failed to create texture');
-    }
 
     final renderTarget = gpu.RenderTarget.singleColor(
       gpu.ColorAttachment(texture: texture),
@@ -100,34 +97,30 @@ class TrianglePainter extends CustomPainter {
 
     const floatsPerVertex = 4;
     final vertices = Float32List.fromList([
-      // Format: x, y, u, v,
-
-      // Traingle #1
-      -0.8, -0.8, -1.0, -1.0, // bottom left
-      0.8, -0.8, 1.0, -1.0, // bottom right
-      -0.8, 0.8, -1.0, 1.0, // top left
-      // Traingle #2
-      0.8, -0.8, 1.0, -1.0, // bottom right
-      0.8, 0.8, 1.0, 1.0, // top right
-      -0.8, 0.8, -1.0, 1.0, // top left
+      // Format: x, y, u, v
+      -0.8, -0.8, -1.0, -1.0,
+      0.8, -0.8, 1.0, -1.0,
+      -0.8, 0.8, -1.0, 1.0,
+      0.8, -0.8, 1.0, -1.0,
+      0.8, 0.8, 1.0, 1.0,
+      -0.8, 0.8, -1.0, 1.0,
     ]);
 
     final verticesDeviceBuffer = gpu.gpuContext.createDeviceBufferWithCopy(
       ByteData.sublistView(vertices),
     );
-    if (verticesDeviceBuffer == null) {
-      throw Exception('Failed to create vertices device buffer');
-    }
 
+    // Create transformation matrices
     final model = vm.Matrix4.rotationY(angle);
     final view = vm.Matrix4.translation(vm.Vector3(0.0, 0.0, -2.0));
     final projection = vm.makePerspectiveMatrix(
       vm.radians(45),
       size.aspectRatio,
       0.1,
-      100,
+      100.0,
     );
 
+    // Pack matrices into uniform buffer
     final vertUniforms = [model, view, projection];
 
     final vertUniformsDeviceBuffer = gpu.gpuContext.createDeviceBufferWithCopy(
@@ -135,10 +128,6 @@ class TrianglePainter extends CustomPainter {
         Float32List.fromList(vertUniforms.expand((m) => m.storage).toList()),
       ),
     );
-
-    if (vertUniformsDeviceBuffer == null) {
-      throw Exception('Failed to create vert uniforms device buffer');
-    }
 
     renderPass.bindPipeline(pipeline);
 
