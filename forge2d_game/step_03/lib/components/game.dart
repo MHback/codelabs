@@ -4,8 +4,8 @@
 
 import 'dart:async';
 
-import 'package:flame/components.dart';
-import 'package:flame_forge2d/flame_forge2d.dart';
+import 'package:flame/components.dart' as flame;
+import 'package:flame_forge2d/flame_forge2d.dart' as forge2d;
 import 'package:flame_kenney_xml/flame_kenney_xml.dart';
 
 import 'background.dart';
