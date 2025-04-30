@@ -71,7 +71,7 @@ jobs:
     # - name: Setup runtime (example)
     #   uses: actions/setup-example@v1
     - name: Setup build tools
-      if: ${{ (matrix.language == 'c-cpp' || 'java-kotlin' }}
+      if: ${{ matrix.language == 'c-cpp' || matrix.language == 'java-kotlin' }}
       shell: bash
       run: |
         if [ "${{ matrix.language }}" == "c-cpp" ]; then
