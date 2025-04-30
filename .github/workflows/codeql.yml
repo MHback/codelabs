@@ -44,7 +44,7 @@ jobs:
       matrix:
         include:
         - language: c-cpp
-          build-mode: autobuild
+          build-mode: manual
         - language: java-kotlin
           build-mode: manual
         - language: python
@@ -70,7 +70,12 @@ jobs:
     # or others). This is typically only required for manual builds.
     # - name: Setup runtime (example)
     #   uses: actions/setup-example@v1
-
+    - name: Setup build tools
+      if: matrix.language == 'c-cpp'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -91,20 +96,18 @@ jobs:
     # ℹ️ Command-line programs to run using the OS shell.
     # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
     - if: matrix.build-mode == 'manual'
-      shell: bash
-      run: |
-       # Replace the following command with the appropriate build command for your project.
-        # For Maven:
-        mvn clean install
-        # Or for Gradle:
-        # ./gradlew build
-        echo 'If you are using a "manual" build mode for one or more of the' \
-          'languages you are analyzing, replace this with the commands to build' \
-          'your code, for example:'
-        echo '  make bootstrap'
-        echo '  make release'
-        exit 1
-
+    shell: bash
+    run: |
+      echo "Starting manual build for ${{ matrix.language }} project..."
+      if [ "${{ matrix.language }}" == "c-cpp" ]; then
+        mkdir build
+        cd build
+        cmake ..
+        make
+      elif [ "${{ matrix.language }}" == "java-kotlin" ]; then
+        mvn clean install || ./gradlew build
+      fi 
+      
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
