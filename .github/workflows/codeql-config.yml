@@ -1,0 +1,31 @@
+name: "Advanced CodeQL Configuration"
+description: "Custom configuration for CodeQL analysis."
+
+queries:
+  # Include the default security and quality queries
+  - security-and-quality
+
+  # Add extended security queries for in-depth analysis
+  - security-extended
+
+  # Optionally include custom queries (if you have any)
+  # Example:
+  # - path/to/custom-query.qls
+
+  # You can also use query packs from the CodeQL repository
+  # Example:
+  # - https://github.com/github/codeql-go/query-pack-security-extended
+
+paths:
+  # Include specific directories for analysis
+  include:
+    - src/
+    - lib/
+    - app/
+    - main/
+
+  # Exclude directories (if necessary)
+  exclude:
+    - tests/
+    - docs/
+    - temp/
