@@ -74,13 +74,21 @@ jobs:
       if: ${{ matrix.language == 'c-cpp' || matrix.language == 'java-kotlin' }}
       shell: bash
       run: |
+        echo "Installing build tools for ${{ matrix.language }}..."
         if [ "${{ matrix.language }}" == "c-cpp" ]; then
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
         elif [ "${{ matrix.language }}" == "java-kotlin" ]; then
           sudo apt-get update
           sudo apt-get install -y openjdk-11-jdk maven
-        fi  
+        fi
+    
+    - name: Manual Build for Swift
+      if: ${{ matrix.language == 'swift' && matrix.build-mode == 'manual' }}
+      shell: bash
+      run: |
+        echo "Building Swift project..."
+        swift build || (echo "Swift build failed!" && exit 1)
         
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
@@ -102,6 +110,8 @@ jobs:
     # to build your code.
     # ℹ️ Command-line programs to run using the OS shell.
     # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+    
+        
     - name: Manual Build
       if: matrix.build-mode == 'manual'
       shell: bash
@@ -112,8 +122,8 @@ jobs:
           echo "Building C/C++ project..."
           mkdir -p build || exit 1
           cd build || exit 1
-          cmake .. || (echo "CMake configuration failed!" && exit 1)
-          make || (echo "Build failed!" && exit 1)
+          cmake .. || (echo "CMake configuration failed! Check CMake logs for details." && exit 1)
+          make || (echo "Build failed during the 'make' process! Check build logs for details." && exit 1)
         elif [ "${{ matrix.language }}" == "java-kotlin" ]; then
           echo "Building Java/Kotlin project..."
           mvn clean install || ./gradlew build || (echo "Java/Kotlin build failed!" && exit 1)
