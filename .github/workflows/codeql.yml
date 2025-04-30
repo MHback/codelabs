@@ -100,13 +100,13 @@ jobs:
     run: |
       echo "Starting manual build for ${{ matrix.language }} project..."
       if [ "${{ matrix.language }}" == "c-cpp" ]; then
-        mkdir build
-        cd build
-        cmake ..
-        make
+        mkdir build || exit 1
+        cd build || exit 1
+        cmake .. || exit 1
+        make || exit 1
       elif [ "${{ matrix.language }}" == "java-kotlin" ]; then
-        mvn clean install || ./gradlew build
-      fi 
+        mvn clean install || ./gradlew build || exit 1
+      fi
       
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
