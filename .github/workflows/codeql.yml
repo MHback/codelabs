@@ -95,18 +95,22 @@ jobs:
     # to build your code.
     # ℹ️ Command-line programs to run using the OS shell.
     # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
-    - if: matrix.build-mode == 'manual'
-    shell: bash
-    run: |
-      echo "Starting manual build for ${{ matrix.language }} project..."
-      if [ "${{ matrix.language }}" == "c-cpp" ]; then
-        mkdir build || exit 1
-        cd build || exit 1
-        cmake .. || exit 1
-        make || exit 1
-      elif [ "${{ matrix.language }}" == "java-kotlin" ]; then
-        mvn clean install || ./gradlew build || exit 1
-      fi
+    - name: Manual Build
+      if: matrix.build-mode == 'manual'
+      shell: bash
+      run: |
+        echo "Starting manual build for ${{ matrix.language }} project..."
+        
+        if [ "${{ matrix.language }}" == "c-cpp" ]; then
+          echo "Building C/C++ project..."
+          mkdir -p build || exit 1
+          cd build || exit 1
+          cmake .. || (echo "CMake configuration failed!" && exit 1)
+          make || (echo "Build failed!" && exit 1)
+        elif [ "${{ matrix.language }}" == "java-kotlin" ]; then
+          echo "Building Java/Kotlin project..."
+          mvn clean install || ./gradlew build || (echo "Java/Kotlin build failed!" && exit 1)
+        fi
       
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
