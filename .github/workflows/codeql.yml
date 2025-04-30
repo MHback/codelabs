@@ -46,7 +46,7 @@ jobs:
         - language: c-cpp
           build-mode: autobuild
         - language: java-kotlin
-          build-mode: autobuild
+          build-mode: manual
         - language: python
           build-mode: none
         - language: ruby
@@ -93,6 +93,11 @@ jobs:
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |
+       # Replace the following command with the appropriate build command for your project.
+        # For Maven:
+        mvn clean install
+        # Or for Gradle:
+        # ./gradlew build
         echo 'If you are using a "manual" build mode for one or more of the' \
           'languages you are analyzing, replace this with the commands to build' \
           'your code, for example:'
