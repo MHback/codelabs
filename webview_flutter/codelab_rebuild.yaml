@@ -18,6 +18,21 @@ steps:
           include: ../../analysis_options.yaml
       - name: Remove README
         rm: webview_in_flutter/README.md
+      - name: Add .gemini directory
+        mkdir: webview_in_flutter/.gemini
+      - name: Add .gemini/settings.json
+        path: webview_in_flutter/.gemini/settings.json
+        replace-contents: |
+          {
+              "mcpServers": {
+                  "dart": {
+                      "command": "dart",
+                      "args": [
+                          "mcp-server"
+                      ]
+                  }
+              }
+          }
       - name: Add .vscode directory
         mkdir: webview_in_flutter/.vscode
       - name: Add .vscode/launch.json
@@ -42,20 +57,6 @@ steps:
       - name: Add webview_flutter
         path: webview_in_flutter
         flutter: pub add webview_flutter
-      - name: Patch android/app/build.gradle.kts
-        path: webview_in_flutter/android/app/build.gradle.kts
-        patch-u: |
-          --- b/webview_flutter/step_03/android/app/build.gradle
-          +++ a/webview_flutter/step_03/android/app/build.gradle
-          @@ -24,7 +24,7 @@ android {
-                   applicationId = "com.example.webview_in_flutter"
-                   // You can update the following values to match your application needs.
-                   // For more information, see: https://flutter.dev/to/review-gradle-config.
-          -        minSdk = flutter.minSdkVersion
-          +        minSdk = 21
-                   targetSdk = flutter.targetSdkVersion
-                   versionCode = flutter.versionCode
-                   versionName = flutter.versionName
       - name: Build iOS
         platforms: [ macos ]
         path: webview_in_flutter
@@ -99,8 +100,8 @@ steps:
             @override
             void initState() {
               super.initState();
-              controller =
-                  WebViewController()..loadRequest(Uri.parse('https://flutter.dev'));
+              controller = WebViewController()
+                ..loadRequest(Uri.parse('https://flutter.dev'));
             }
 
             @override
@@ -148,28 +149,27 @@ steps:
             @override
             void initState() {
               super.initState();
-              controller =
-                  WebViewController()
-                    ..setNavigationDelegate(
-                      NavigationDelegate(
-                        onPageStarted: (url) {
-                          setState(() {
-                            loadingPercentage = 0;
-                          });
-                        },
-                        onProgress: (progress) {
-                          setState(() {
-                            loadingPercentage = progress;
-                          });
-                        },
-                        onPageFinished: (url) {
-                          setState(() {
-                            loadingPercentage = 100;
-                          });
-                        },
-                      ),
-                    )
-                    ..loadRequest(Uri.parse('https://flutter.dev'));
+              controller = WebViewController()
+                ..setNavigationDelegate(
+                  NavigationDelegate(
+                    onPageStarted: (url) {
+                      setState(() {
+                        loadingPercentage = 0;
+                      });
+                    },
+                    onProgress: (progress) {
+                      setState(() {
+                        loadingPercentage = progress;
+                      });
+                    },
+                    onPageFinished: (url) {
+                      setState(() {
+                        loadingPercentage = 100;
+                      });
+                    },
+                  ),
+                )
+                ..loadRequest(Uri.parse('https://flutter.dev'));
             }
 
             @override
@@ -207,8 +207,8 @@ steps:
           -  @override
           -  void initState() {
           -    super.initState();
-          -    controller =
-          -        WebViewController()..loadRequest(Uri.parse('https://flutter.dev'));
+          -    controller = WebViewController()
+          -      ..loadRequest(Uri.parse('https://flutter.dev'));
           -  }
           -
              @override
@@ -309,8 +309,8 @@ steps:
           +  @override
           +  void initState() {
           +    super.initState();
-          +    controller =
-          +        WebViewController()..loadRequest(Uri.parse('https://flutter.dev'));
+          +    controller = WebViewController()
+          +      ..loadRequest(Uri.parse('https://flutter.dev'));
           +  }
           +
              @override
@@ -342,7 +342,7 @@ steps:
            
              @override
              State<WebViewStack> createState() => _WebViewStackState();
-          @@ -14,40 +16,36 @@ class WebViewStack extends StatefulWidget {
+          @@ -14,39 +16,36 @@ class WebViewStack extends StatefulWidget {
            
            class _WebViewStackState extends State<WebViewStack> {
              var loadingPercentage = 0;
@@ -351,28 +351,27 @@ steps:
              @override
              void initState() {
                super.initState();
-          -    controller =
-          -        WebViewController()
-          -          ..setNavigationDelegate(
-          -            NavigationDelegate(
-          -              onPageStarted: (url) {
-          -                setState(() {
-          -                  loadingPercentage = 0;
-          -                });
-          -              },
-          -              onProgress: (progress) {
-          -                setState(() {
-          -                  loadingPercentage = progress;
-          -                });
-          -              },
-          -              onPageFinished: (url) {
-          -                setState(() {
-          -                  loadingPercentage = 100;
-          -                });
-          -              },
-          -            ),
-          -          )
-          -          ..loadRequest(Uri.parse('https://flutter.dev'));
+          -    controller = WebViewController()
+          -      ..setNavigationDelegate(
+          -        NavigationDelegate(
+          -          onPageStarted: (url) {
+          -            setState(() {
+          -              loadingPercentage = 0;
+          -            });
+          -          },
+          -          onProgress: (progress) {
+          -            setState(() {
+          -              loadingPercentage = progress;
+          -            });
+          -          },
+          -          onPageFinished: (url) {
+          -            setState(() {
+          -              loadingPercentage = 100;
+          -            });
+          -          },
+          -        ),
+          -      )
+          -      ..loadRequest(Uri.parse('https://flutter.dev'));
           +    widget.controller.setNavigationDelegate(
           +      NavigationDelegate(
           +        onPageStarted: (url) {
@@ -467,13 +466,12 @@ steps:
                       await controller.loadRequest(Uri.parse('https://youtube.com'));
                   }
                 },
-                itemBuilder:
-                    (context) => [
-                      const PopupMenuItem<_MenuOptions>(
-                        value: _MenuOptions.navigationDelegate,
-                        child: Text('Navigate to YouTube'),
-                      ),
-                    ],
+                itemBuilder: (context) => [
+                  const PopupMenuItem<_MenuOptions>(
+                    value: _MenuOptions.navigationDelegate,
+                    child: Text('Navigate to YouTube'),
+                  ),
+                ],
               );
             }
           }
@@ -552,16 +550,16 @@ steps:
           +            ).showSnackBar(SnackBar(content: Text('$userAgent')));
                    }
                  },
-                 itemBuilder:
-          @@ -27,6 +41,10 @@ class Menu extends StatelessWidget {
-                         value: _MenuOptions.navigationDelegate,
-                         child: Text('Navigate to YouTube'),
-                       ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.userAgent,
-          +              child: Text('Show user-agent'),
-          +            ),
-                     ],
+                 itemBuilder: (context) => [
+          @@ -26,6 +40,10 @@ class Menu extends StatelessWidget {
+                     value: _MenuOptions.navigationDelegate,
+                     child: Text('Navigate to YouTube'),
+                   ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.userAgent,
+          +          child: Text('Show user-agent'),
+          +        ),
+                 ],
                );
              }
       - name: Patch lib/src/web_view_stack.dart
@@ -677,16 +675,16 @@ steps:
           +req.send();''');
                    }
                  },
-                 itemBuilder:
-          @@ -45,6 +58,10 @@ class _MenuState extends State<Menu> {
-                         value: _MenuOptions.userAgent,
-                         child: Text('Show user-agent'),
-                       ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.javascriptChannel,
-          +              child: Text('Lookup IP Address'),
-          +            ),
-                     ],
+                 itemBuilder: (context) => [
+          @@ -44,6 +57,10 @@ class _MenuState extends State<Menu> {
+                     value: _MenuOptions.userAgent,
+                     child: Text('Show user-agent'),
+                   ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.javascriptChannel,
+          +          child: Text('Lookup IP Address'),
+          +        ),
+                 ],
                );
              }
       - name: Patch lib/src/web_view_stack.dart
@@ -767,32 +765,32 @@ steps:
           +            await _onRemoveCookie(widget.controller);
                    }
                  },
-                 itemBuilder:
-          @@ -62,7 +83,81 @@ req.send();''');
-                         value: _MenuOptions.javascriptChannel,
-                         child: Text('Lookup IP Address'),
-                       ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.clearCookies,
-          +              child: Text('Clear cookies'),
-          +            ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.listCookies,
-          +              child: Text('List cookies'),
-          +            ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.addCookie,
-          +              child: Text('Add cookie'),
-          +            ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.setCookie,
-          +              child: Text('Set cookie'),
-          +            ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.removeCookie,
-          +              child: Text('Remove cookie'),
-          +            ),
-                     ],
+                 itemBuilder: (context) => [
+          @@ -61,7 +82,81 @@ req.send();''');
+                     value: _MenuOptions.javascriptChannel,
+                     child: Text('Lookup IP Address'),
+                   ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.clearCookies,
+          +          child: Text('Clear cookies'),
+          +        ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.listCookies,
+          +          child: Text('List cookies'),
+          +        ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.addCookie,
+          +          child: Text('Add cookie'),
+          +        ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.setCookie,
+          +          child: Text('Set cookie'),
+          +        ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.removeCookie,
+          +          child: Text('Remove cookie'),
+          +        ),
+                 ],
                );
              }
           +
@@ -937,27 +935,27 @@ steps:
           +            await _onLoadHtmlStringExample(widget.controller, context);
                    }
                  },
-                 itemBuilder:
-          @@ -103,6 +136,18 @@ req.send();''');
-                         value: _MenuOptions.removeCookie,
-                         child: Text('Remove cookie'),
-                       ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.loadFlutterAsset,
-          +              child: Text('Load Flutter Asset'),
-          +            ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.loadHtmlString,
-          +              child: Text('Load HTML string'),
-          +            ),
-          +            const PopupMenuItem<_MenuOptions>(
-          +              value: _MenuOptions.loadLocalFile,
-          +              child: Text('Load local file'),
-          +            ),
-                     ],
+                 itemBuilder: (context) => [
+          @@ -102,6 +135,18 @@ req.send();''');
+                     value: _MenuOptions.removeCookie,
+                     child: Text('Remove cookie'),
+                   ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.loadFlutterAsset,
+          +          child: Text('Load Flutter Asset'),
+          +        ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.loadHtmlString,
+          +          child: Text('Load HTML string'),
+          +        ),
+          +        const PopupMenuItem<_MenuOptions>(
+          +          value: _MenuOptions.loadLocalFile,
+          +          child: Text('Load local file'),
+          +        ),
+                 ],
                );
              }
-          @@ -160,4 +205,37 @@ req.send();''');
+          @@ -159,4 +204,37 @@ req.send();''');
                  context,
                ).showSnackBar(const SnackBar(content: Text('Custom cookie removed.')));
              }

@@ -5,7 +5,7 @@ steps:
       - name: Remove generated code
         rmdir: step_01
       - name: Create project
-        flutter: create myartist
+        flutter: create -e myartist
       - name: Strip DEVELOPMENT_TEAM
         strip-lines-containing: DEVELOPMENT_TEAM =
         path: myartist/ios/Runner.xcodeproj/project.pbxproj
@@ -15,6 +15,21 @@ steps:
           include: ../../analysis_options.yaml
       - name: Remove README
         rm: myartist/README.md
+      - name: Add .gemini directory
+        mkdir: myartist/.gemini
+      - name: Add .gemini/settings.json
+        path: myartist/.gemini/settings.json
+        replace-contents: |
+          {
+              "mcpServers": {
+                  "dart": {
+                      "command": "dart",
+                      "args": [
+                          "mcp-server"
+                      ]
+                  }
+              }
+          }
       - name: Add .vscode directory
         mkdir: myartist/.vscode
       - name: Add .vscode/launch.json
@@ -33,39 +48,41 @@ steps:
                   }
               ]
           }
-      - name: Replace pubspec.yaml
-        path: myartist/pubspec.yaml
-        replace-contents: |
-          name: myartist
-          description: A new Flutter project.
-          publish_to: "none"
-          version: 1.0.0
-
-          environment:
-            sdk: ^3.7.0-0
-
-          dependencies:
-            flutter:
-              sdk: flutter
-
-          dev_dependencies:
-            flutter_test:
-              sdk: flutter
-
-          flutter:
-            uses-material-design: true
-            assets:
-              - assets/images/
-              - assets/images/playlists/
-              - assets/images/albums/
-              - assets/images/artists/
-              - assets/images/news/
-      - name: Add adaptive_breakpoints adaptive_components adaptive_navigation animations ...
+      - name: Add dependencies
         path: myartist
-        flutter: pub add adaptive_breakpoints adaptive_components adaptive_navigation animations collection cupertino_icons desktop_window dynamic_color english_words flutter_bloc freezed_annotation go_router material_color_utilities:any universal_platform url_launcher
+        flutter: pub add animations collection cupertino_icons desktop_window dynamic_color english_words flutter_bloc freezed_annotation go_router material_color_utilities:any universal_platform url_launcher
       - name: Add build_runner flutter_lints freezed
         path: myartist
         flutter: pub add --dev build_runner flutter_lints freezed
+      - name: Add assets
+        path: myartist/pubspec.yaml
+        patch-u: |
+          --- b/boring_to_beautiful/step_01/pubspec.yaml
+          +++ a/boring_to_beautiful/step_01/pubspec.yaml
+          @@ -31,3 +31,9 @@ dev_dependencies:
+
+           flutter:
+             uses-material-design: true
+          +  assets:
+          +    - assets/images/
+          +    - assets/images/playlists/
+          +    - assets/images/albums/
+          +    - assets/images/artists/
+          +    - assets/images/news/
+      - name: Patch android/app/build.gradle.kts
+        path: myartist/android/app/build.gradle.kts
+        patch-u: |
+          --- b/myartist/step_02/android/app/build.gradle.kts
+          +++ a/myartist/step_02/android/app/build.gradle.kts
+          @@ -8,7 +8,7 @@ plugins {
+           android {
+               namespace = "com.example.myartist"
+               compileSdk = flutter.compileSdkVersion
+          -    ndkVersion = flutter.ndkVersion
+          +    ndkVersion = "27.0.12077973"
+
+               compileOptions {
+                   sourceCompatibility = JavaVersion.VERSION_11
       - name: Patch macos/Runner/DebugProfile.entitlements
         path: myartist/macos/Runner/DebugProfile.entitlements
         patch-u: |
@@ -75,28 +92,24 @@ steps:
            	<true/>
            	<key>com.apple.security.cs.allow-jit</key>
            	<true/>
-          +	<key>com.apple.security.network.client</key>
-          +	<true/>
            	<key>com.apple.security.network.server</key>
            	<true/>
+          +	<key>com.apple.security.network.client</key>
+          +	<true/>
            </dict>
       - name: Patch macos/Runner/Release.entitlements
         path: myartist/macos/Runner/Release.entitlements
         patch-u: |
           --- b/boring_to_beautiful/step_01/macos/Runner/Release.entitlements
           +++ a/boring_to_beautiful/step_01/macos/Runner/Release.entitlements
-          @@ -4,5 +4,9 @@
+          @@ -4,5 +4,7 @@
            <dict>
            	<key>com.apple.security.app-sandbox</key>
            	<true/>
           +	<key>com.apple.security.network.client</key>
           +	<true/>
-          +	<key>com.apple.security.network.server</key>
-          +	<true/>
            </dict>
            </plist>
-      - name: Drop test/widget_test.dart
-        rm: myartist/test/widget_test.dart
       - name: Replace lib/main.dart
         path: myartist/lib/main.dart
         replace-contents: |
@@ -145,13 +158,16 @@ steps:
       - name: mkdir lib/src/shared/views
         path: myartist
         mkdir: lib/src/shared/views
+      - name: mkdir lib/src/utils
+        path: myartist
+        mkdir: lib/src/utils
       - name: Add lib/src/features/home/home.dart
         path: myartist/lib/src/features/home/home.dart
         replace-contents: |
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export 'view/view.dart';
       - name: Add lib/src/features/home/view/home_artists.dart
         path: myartist/lib/src/features/home/view/home_artists.dart
@@ -180,19 +196,18 @@ steps:
             Widget build(BuildContext context) {
               return Padding(
                 padding: const EdgeInsets.all(15),
-                child:
-                    constraints.isMobile
-                        ? Column(
-                          children: [
-                            for (final artist in artists) buildTile(context, artist),
-                          ],
-                        )
-                        : Row(
-                          children: [
-                            for (final artist in artists)
-                              Flexible(flex: 1, child: buildTile(context, artist)),
-                          ],
-                        ),
+                child: constraints.isMobile
+                    ? Column(
+                        children: [
+                          for (final artist in artists) buildTile(context, artist),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          for (final artist in artists)
+                            Flexible(flex: 1, child: buildTile(context, artist)),
+                        ],
+                      ),
               );
             }
 
@@ -234,7 +249,7 @@ steps:
                 children: [
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.all(2), // Modify this line
+                      padding: const EdgeInsets.all(2),
                       child: Clickable(
                         child: SizedBox(
                           height: 275,
@@ -394,7 +409,7 @@ steps:
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export 'home_artists.dart';
           export 'home_highlight.dart';
           export 'home_recent.dart';
@@ -406,13 +421,13 @@ steps:
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
 
-          import 'package:adaptive_components/adaptive_components.dart';
           import 'package:flutter/material.dart';
 
           import '../../../shared/classes/classes.dart';
           import '../../../shared/extensions.dart';
           import '../../../shared/providers/providers.dart';
           import '../../../shared/views/views.dart';
+          import '../../../utils/adaptive_components.dart';
           import '../../playlists/view/playlist_songs.dart';
           import 'view.dart';
 
@@ -434,8 +449,6 @@ steps:
               final List<Artist> artists = artistsProvider.artists;
               return LayoutBuilder(
                 builder: (context, constraints) {
-                  // Add conditional mobile layout
-
                   return Scaffold(
                     body: SingleChildScrollView(
                       child: AdaptiveColumn(
@@ -443,7 +456,7 @@ steps:
                           AdaptiveContainer(
                             columnSpan: 12,
                             child: Padding(
-                              padding: const EdgeInsets.all(2), // Modify this line
+                              padding: const EdgeInsets.all(2),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -465,11 +478,10 @@ steps:
                               children: [
                                 const HomeHighlight(),
                                 LayoutBuilder(
-                                  builder:
-                                      (context, constraints) => HomeArtists(
-                                        artists: artists,
-                                        constraints: constraints,
-                                      ),
+                                  builder: (context, constraints) => HomeArtists(
+                                    artists: artists,
+                                    constraints: constraints,
+                                  ),
                                 ),
                               ],
                             ),
@@ -480,7 +492,7 @@ steps:
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Padding(
-                                  padding: const EdgeInsets.all(2), // Modify this line
+                                  padding: const EdgeInsets.all(2),
                                   child: Text(
                                     'Recently played',
                                     style: context.headlineSmall,
@@ -493,7 +505,7 @@ steps:
                           AdaptiveContainer(
                             columnSpan: 12,
                             child: Padding(
-                              padding: const EdgeInsets.all(2), // Modify this line
+                              padding: const EdgeInsets.all(2),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -504,17 +516,15 @@ steps:
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Padding(
-                                          padding: const EdgeInsets.all(
-                                            2,
-                                          ), // Modify this line
+                                          padding: const EdgeInsets.all(2),
                                           child: Text(
                                             'Top Songs Today',
                                             style: context.titleLarge,
                                           ),
                                         ),
                                         LayoutBuilder(
-                                          builder:
-                                              (context, constraints) => PlaylistSongs(
+                                          builder: (context, constraints) =>
+                                              PlaylistSongs(
                                                 playlist: topSongs,
                                                 constraints: constraints,
                                               ),
@@ -522,7 +532,6 @@ steps:
                                       ],
                                     ),
                                   ),
-                                  // Add spacer between tables
                                   Flexible(
                                     flex: 10,
                                     child: Column(
@@ -530,17 +539,15 @@ steps:
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Padding(
-                                          padding: const EdgeInsets.all(
-                                            2,
-                                          ), // Modify this line
+                                          padding: const EdgeInsets.all(2),
                                           child: Text(
                                             'New Releases',
                                             style: context.titleLarge,
                                           ),
                                         ),
                                         LayoutBuilder(
-                                          builder:
-                                              (context, constraints) => PlaylistSongs(
+                                          builder: (context, constraints) =>
+                                              PlaylistSongs(
                                                 playlist: newReleases,
                                                 constraints: constraints,
                                               ),
@@ -566,7 +573,7 @@ steps:
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export 'view/view.dart';
       - name: Add lib/src/features/playlists/view/playlist_songs.dart
         path: myartist/lib/src/features/playlists/view/playlist_songs.dart
@@ -611,40 +618,34 @@ steps:
                     ),
                   ),
                 ],
-                rowBuilder:
-                    (context, index) => DataRow.byIndex(
-                      index: index,
-                      cells: [
-                        DataCell(
-                          // Add HoverableSongPlayButton
-                          Center(
-                            child: Text(
-                              (index + 1).toString(),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Row(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(2),
-                                child: ClippedImage(playlist.songs[index].image.image),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(child: Text(playlist.songs[index].title)),
-                            ],
-                          ),
-                        ),
-                        DataCell(Text(playlist.songs[index].length.toHumanizedString())),
-                      ],
+                rowBuilder: (context, index) => DataRow.byIndex(
+                  index: index,
+                  cells: [
+                    DataCell(
+                      Center(
+                        child: Text((index + 1).toString(), textAlign: TextAlign.center),
+                      ),
                     ),
+                    DataCell(
+                      Row(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: ClippedImage(playlist.songs[index].image.image),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(playlist.songs[index].title)),
+                        ],
+                      ),
+                    ),
+                    DataCell(Text(playlist.songs[index].length.toHumanizedString())),
+                  ],
+                ),
                 itemBuilder: (song, index) {
                   return ListTile(
-                    onTap:
-                        () => BlocProvider.of<PlaybackBloc>(
-                          context,
-                        ).add(PlaybackEvent.changeSong(song)),
+                    onTap: () => BlocProvider.of<PlaybackBloc>(
+                      context,
+                    ).add(PlaybackEvent.changeSong(song)),
                     leading: ClippedImage(song.image.image),
                     title: Text(song.title),
                     subtitle: Text(song.length.toHumanizedString()),
@@ -659,7 +660,7 @@ steps:
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export 'playlist_home_screen.dart';
           export 'playlist_screen.dart';
       - name: Add lib/src/features/playlists/view/playlist_home_screen.dart
@@ -711,10 +712,8 @@ steps:
                                   title: playlist.title,
                                   subtitle: playlist.description,
                                 ),
-                                onTap:
-                                    () => GoRouter.of(
-                                      context,
-                                    ).go('/playlists/${playlist.id}'),
+                                onTap: () =>
+                                    GoRouter.of(context).go('/playlists/${playlist.id}'),
                               );
                             },
                           ),
@@ -754,10 +753,9 @@ steps:
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final colors = Theme.of(context).colorScheme;
-                  final double headerHeight =
-                      constraints.isMobile
-                          ? max(constraints.biggest.height * 0.5, 450)
-                          : max(constraints.biggest.height * 0.25, 250);
+                  final double headerHeight = constraints.isMobile
+                      ? max(constraints.biggest.height * 0.5, 450)
+                      : max(constraints.biggest.height * 0.25, 250);
                   if (constraints.isMobile) {
                     return Scaffold(
                       appBar: AppBar(
@@ -792,12 +790,12 @@ steps:
                           pinned: false,
                           flexibleSpace: FlexibleSpaceBar(
                             background: AdaptiveImageCard(
-                              axis:
-                                  constraints.isMobile ? Axis.vertical : Axis.horizontal,
-                              constraints:
-                                  constraints
-                                      .copyWith(maxHeight: headerHeight)
-                                      .normalize(),
+                              axis: constraints.isMobile
+                                  ? Axis.vertical
+                                  : Axis.horizontal,
+                              constraints: constraints
+                                  .copyWith(maxHeight: headerHeight)
+                                  .normalize(),
                               image: playlist.cover.image,
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.end,
@@ -870,7 +868,7 @@ steps:
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export 'view/view.dart';
       - name: Add lib/src/features/artists/view/artists_screen.dart
         path: myartist/lib/src/features/artists/view/artists_screen.dart
@@ -950,66 +948,65 @@ steps:
 
               return OutlinedCard(
                 child: LayoutBuilder(
-                  builder:
-                      (context, dimens) => Row(
-                        children: [
-                          SizedBox(
-                            width: dimens.maxWidth * 0.4,
-                            child: Image.asset(artist.image.image, fit: BoxFit.cover),
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(0, 0, 15, 0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          artist.name,
-                                          style: context.titleMedium,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          artist.bio,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: context.labelSmall,
-                                          maxLines: 3,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (dimens.maxHeight > 100)
-                                    Row(
-                                      children: [
-                                        HoverableSongPlayButton(
-                                          size: const Size(50, 50),
-                                          song: nowPlaying,
-                                          child: Icon(
-                                            Icons.play_circle,
-                                            color: context.colors.tertiary,
-                                          ),
-                                        ),
-                                        Text(
-                                          nowPlaying.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.clip,
-                                          style: context.labelMedium,
-                                        ),
-                                      ],
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
+                  builder: (context, dimens) => Row(
+                    children: [
+                      SizedBox(
+                        width: dimens.maxWidth * 0.4,
+                        child: Image.asset(artist.image.image, fit: BoxFit.cover),
                       ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(0, 0, 15, 0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      artist.name,
+                                      style: context.titleMedium,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      artist.bio,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: context.labelSmall,
+                                      maxLines: 3,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (dimens.maxHeight > 100)
+                                Row(
+                                  children: [
+                                    HoverableSongPlayButton(
+                                      size: const Size(50, 50),
+                                      song: nowPlaying,
+                                      child: Icon(
+                                        Icons.play_circle,
+                                        color: context.colors.tertiary,
+                                      ),
+                                    ),
+                                    Text(
+                                      nowPlaying.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.clip,
+                                      style: context.labelMedium,
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -1062,7 +1059,7 @@ steps:
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export 'artist_bio.dart';
           export 'artist_card.dart';
           export 'artist_events.dart';
@@ -1103,10 +1100,9 @@ steps:
                     title: Text(song.title),
                     subtitle: Text(song.length.toHumanizedString()),
                     trailing: Text(song.ranking.toString()),
-                    onTap:
-                        () => BlocProvider.of<PlaybackBloc>(
-                          context,
-                        ).add(PlaybackEvent.changeSong(song)),
+                    onTap: () => BlocProvider.of<PlaybackBloc>(
+                      context,
+                    ).add(PlaybackEvent.changeSong(song)),
                   );
                 },
                 columns: const [
@@ -1114,31 +1110,30 @@ steps:
                   DataColumn(label: Text('Title')),
                   DataColumn(label: Text('Length')),
                 ],
-                rowBuilder:
-                    (song, index) => DataRow.byIndex(
-                      index: index,
-                      cells: [
-                        DataCell(
-                          HoverableSongPlayButton(
-                            song: song,
-                            child: Center(child: Text(song.ranking.toString())),
-                          ),
-                        ),
-                        DataCell(
-                          Row(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(2),
-                                child: ClippedImage(song.image.image),
-                              ),
-                              const SizedBox(width: 5.0),
-                              Expanded(child: Text(song.title)),
-                            ],
-                          ),
-                        ),
-                        DataCell(Text(song.length.toHumanizedString())),
-                      ],
+                rowBuilder: (song, index) => DataRow.byIndex(
+                  index: index,
+                  cells: [
+                    DataCell(
+                      HoverableSongPlayButton(
+                        song: song,
+                        child: Center(child: Text(song.ranking.toString())),
+                      ),
                     ),
+                    DataCell(
+                      Row(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: ClippedImage(song.image.image),
+                          ),
+                          const SizedBox(width: 5.0),
+                          Expanded(child: Text(song.title)),
+                        ],
+                      ),
+                    ),
+                    DataCell(Text(song.length.toHumanizedString())),
+                  ],
+                ),
               );
             }
           }
@@ -1390,27 +1385,26 @@ steps:
                   DataColumn(label: Text('Location')),
                   DataColumn(label: Text('More info')),
                 ],
-                rowBuilder:
-                    (item, index) => DataRow.byIndex(
-                      index: index,
-                      cells: [
-                        DataCell(Text(item.date)),
-                        DataCell(Row(children: [Expanded(child: Text(item.title))])),
-                        DataCell(Text(item.location)),
-                        DataCell(
-                          Clickable(
-                            child: Text(
-                              item.link,
-                              style: TextStyle(
-                                color: linkColor.value(theme),
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                            onTap: () => launchUrl(Uri.parse('https://docs.flutter.dev')),
+                rowBuilder: (item, index) => DataRow.byIndex(
+                  index: index,
+                  cells: [
+                    DataCell(Text(item.date)),
+                    DataCell(Row(children: [Expanded(child: Text(item.title))])),
+                    DataCell(Text(item.location)),
+                    DataCell(
+                      Clickable(
+                        child: Text(
+                          item.link,
+                          style: TextStyle(
+                            color: linkColor.value(theme),
+                            decoration: TextDecoration.underline,
                           ),
                         ),
-                      ],
+                        onTap: () => launchUrl(Uri.parse('https://docs.flutter.dev')),
+                      ),
                     ),
+                  ],
+                ),
               );
             }
           }
@@ -1469,17 +1463,17 @@ steps:
           const List<NavigationDestination> destinations = [
             NavigationDestination(
               label: 'Home',
-              icon: Icon(Icons.arrow_right_rounded), // Modify this line
+              icon: Icon(Icons.arrow_right_rounded),
               route: '/',
             ),
             NavigationDestination(
               label: 'Playlists',
-              icon: Icon(Icons.arrow_right_rounded), // Modify this line
+              icon: Icon(Icons.arrow_right_rounded),
               route: '/playlists',
             ),
             NavigationDestination(
               label: 'Artists',
-              icon: Icon(Icons.arrow_right_rounded), // Modify this line
+              icon: Icon(Icons.arrow_right_rounded),
               route: '/artists',
             ),
           ];
@@ -1500,100 +1494,84 @@ steps:
 
           final appRouter = GoRouter(
             routes: [
-              // HomeScreen
               GoRoute(
                 path: '/',
-                pageBuilder:
-                    (context, state) => const MaterialPage<void>(
-                      key: _pageKey,
-                      child: RootLayout(
-                        key: _scaffoldKey,
-                        currentIndex: 0,
-                        child: HomeScreen(),
-                      ),
-                    ),
+                pageBuilder: (context, state) => const MaterialPage<void>(
+                  key: _pageKey,
+                  child: RootLayout(
+                    key: _scaffoldKey,
+                    currentIndex: 0,
+                    child: HomeScreen(),
+                  ),
+                ),
               ),
-
-              // PlaylistHomeScreen
               GoRoute(
                 path: '/playlists',
-                pageBuilder:
-                    (context, state) => const MaterialPage<void>(
-                      key: _pageKey,
-                      child: RootLayout(
-                        key: _scaffoldKey,
-                        currentIndex: 1,
-                        child: PlaylistHomeScreen(),
-                      ),
-                    ),
+                pageBuilder: (context, state) => const MaterialPage<void>(
+                  key: _pageKey,
+                  child: RootLayout(
+                    key: _scaffoldKey,
+                    currentIndex: 1,
+                    child: PlaylistHomeScreen(),
+                  ),
+                ),
                 routes: [
                   GoRoute(
                     path: ':pid',
-                    pageBuilder:
-                        (context, state) => MaterialPage<void>(
-                          key: state.pageKey,
-                          child: RootLayout(
-                            key: _scaffoldKey,
-                            currentIndex: 1,
-                            child: PlaylistScreen(
-                              playlist:
-                                  playlistsProvider.getPlaylist(
-                                    state.pathParameters['pid']!,
-                                  )!,
-                            ),
-                          ),
+                    pageBuilder: (context, state) => MaterialPage<void>(
+                      key: state.pageKey,
+                      child: RootLayout(
+                        key: _scaffoldKey,
+                        currentIndex: 1,
+                        child: PlaylistScreen(
+                          playlist: playlistsProvider.getPlaylist(
+                            state.pathParameters['pid']!,
+                          )!,
                         ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-
-              // ArtistHomeScreen
               GoRoute(
                 path: '/artists',
-                pageBuilder:
-                    (context, state) => const MaterialPage<void>(
-                      key: _pageKey,
-                      child: RootLayout(
-                        key: _scaffoldKey,
-                        currentIndex: 2,
-                        child: ArtistsScreen(),
-                      ),
-                    ),
+                pageBuilder: (context, state) => const MaterialPage<void>(
+                  key: _pageKey,
+                  child: RootLayout(
+                    key: _scaffoldKey,
+                    currentIndex: 2,
+                    child: ArtistsScreen(),
+                  ),
+                ),
                 routes: [
                   GoRoute(
                     path: ':aid',
-                    pageBuilder:
-                        (context, state) => MaterialPage<void>(
-                          key: state.pageKey,
-                          child: RootLayout(
-                            key: _scaffoldKey,
-                            currentIndex: 2,
-                            child: ArtistScreen(
-                              artist:
-                                  artistsProvider.getArtist(
-                                    state.pathParameters['aid']!,
-                                  )!,
-                            ),
-                          ),
+                    pageBuilder: (context, state) => MaterialPage<void>(
+                      key: state.pageKey,
+                      child: RootLayout(
+                        key: _scaffoldKey,
+                        currentIndex: 2,
+                        child: ArtistScreen(
+                          artist: artistsProvider.getArtist(
+                            state.pathParameters['aid']!,
+                          )!,
                         ),
-                    // builder: (context, state) => ArtistScreen(
-                    //   id: state.params['aid']!,
-                    // ),
+                      ),
+                    ),
                   ),
                 ],
               ),
               for (final route in destinations.skip(3))
                 GoRoute(
                   path: route.route,
-                  pageBuilder:
-                      (context, state) => MaterialPage<void>(
-                        key: _pageKey,
-                        child: RootLayout(
-                          key: _scaffoldKey,
-                          currentIndex: destinations.indexOf(route),
-                          child: const SizedBox(),
-                        ),
-                      ),
+                  pageBuilder: (context, state) => MaterialPage<void>(
+                    key: _pageKey,
+                    child: RootLayout(
+                      key: _scaffoldKey,
+                      currentIndex: destinations.indexOf(route),
+                      child: const SizedBox(),
+                    ),
+                  ),
                 ),
             ],
           );
@@ -1720,7 +1698,7 @@ steps:
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export './artist.dart';
           export './event.dart';
           export './image.dart';
@@ -1903,7 +1881,7 @@ steps:
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export './artists.dart';
           export './playlists.dart';
           export './songs.dart';
@@ -2305,8 +2283,10 @@ steps:
 
             Color blend(Color targetColor) {
               return Color(
-                // ignore: deprecated_member_use
-                Blend.harmonize(targetColor.value, settings.value.sourceColor.value),
+                Blend.harmonize(
+                  targetColor.toARGB32(),
+                  settings.value.sourceColor.toARGB32(),
+                ),
               );
             }
 
@@ -2319,10 +2299,9 @@ steps:
             }
 
             ColorScheme colors(Brightness brightness, Color? targetColor) {
-              final dynamicPrimary =
-                  brightness == Brightness.light
-                      ? lightDynamic?.primary
-                      : darkDynamic?.primary;
+              final dynamicPrimary = brightness == Brightness.light
+                  ? lightDynamic?.primary
+                  : darkDynamic?.primary;
               return ColorScheme.fromSeed(
                 seedColor: dynamicPrimary ?? source(targetColor),
                 brightness: brightness,
@@ -2332,8 +2311,8 @@ steps:
             ShapeBorder get shapeMedium =>
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8));
 
-            CardTheme cardTheme() {
-              return CardTheme(
+            CardThemeData cardTheme() {
+              return CardThemeData(
                 elevation: 0,
                 shape: shapeMedium,
                 clipBehavior: Clip.antiAlias,
@@ -2355,8 +2334,8 @@ steps:
               );
             }
 
-            TabBarTheme tabBarTheme(ColorScheme colors) {
-              return TabBarTheme(
+            TabBarThemeData tabBarTheme(ColorScheme colors) {
+              return TabBarThemeData(
                 labelColor: colors.secondary,
                 unselectedLabelColor: colors.onSurfaceVariant,
                 indicator: BoxDecoration(
@@ -2365,8 +2344,8 @@ steps:
               );
             }
 
-            BottomAppBarTheme bottomAppBarTheme(ColorScheme colors) {
-              return BottomAppBarTheme(color: colors.surface, elevation: 0);
+            BottomAppBarThemeData bottomAppBarTheme(ColorScheme colors) {
+              return BottomAppBarThemeData(color: colors.surface, elevation: 0);
             }
 
             BottomNavigationBarThemeData bottomNavigationBarTheme(ColorScheme colors) {
@@ -2391,7 +2370,6 @@ steps:
             ThemeData light([Color? targetColor]) {
               final colorScheme = colors(Brightness.light, targetColor);
               return ThemeData.light().copyWith(
-                // Add page transitions
                 colorScheme: colorScheme,
                 appBarTheme: appBarTheme(colorScheme),
                 cardTheme: cardTheme(),
@@ -2408,7 +2386,6 @@ steps:
             ThemeData dark([Color? targetColor]) {
               final colorScheme = colors(Brightness.dark, targetColor);
               return ThemeData.dark().copyWith(
-                // Add page transitions
                 colorScheme: colorScheme,
                 appBarTheme: appBarTheme(colorScheme),
                 cardTheme: cardTheme(),
@@ -2454,7 +2431,6 @@ steps:
             return Color(Random().nextInt(0xFFFFFFFF));
           }
 
-          // Custom Colors
           const linkColor = CustomColor(name: 'Link Color', color: Color(0xFF00B0FF));
 
           class CustomColor {
@@ -2480,11 +2456,10 @@ steps:
           // found in the LICENSE file.
 
           import 'package:flutter/material.dart';
-          // Add Google Fonts Package import
 
           extension TypographyUtils on BuildContext {
             ThemeData get theme => Theme.of(this);
-            TextTheme get textTheme => theme.textTheme; // Modify this line
+            TextTheme get textTheme => theme.textTheme;
             ColorScheme get colors => theme.colorScheme;
             TextStyle? get displayLarge =>
                 textTheme.displayLarge?.copyWith(color: colors.onSurface);
@@ -2588,7 +2563,7 @@ steps:
           part of 'playback_bloc.dart';
 
           @Freezed()
-          class PlaybackState with _$PlaybackState {
+          abstract class PlaybackState with _$PlaybackState {
             const factory PlaybackState({
               /// Legal values are between 0 and 1.
               @Default(0.5) double volume,
@@ -2606,7 +2581,7 @@ steps:
           /// Helper which enforces our rule that our `song` and `progress` must either
           /// both be `null`, or both have a real value.
           @Freezed()
-          class SongWithProgress with _$SongWithProgress {
+          abstract class SongWithProgress with _$SongWithProgress {
             const factory SongWithProgress({
               required Duration progress,
               required Song song,
@@ -2618,7 +2593,7 @@ steps:
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export 'playback_bloc.dart';
       - name: Add lib/src/shared/playback/bloc/playback_bloc.dart
         path: myartist/lib/src/shared/playback/bloc/playback_bloc.dart
@@ -2639,14 +2614,17 @@ steps:
           class PlaybackBloc extends Bloc<PlaybackEvent, PlaybackState> {
             PlaybackBloc() : super(PlaybackState.initial()) {
               on<PlaybackEvent>(
-                (event, emit) => event.map(
-                  changeSong: (event) => _changeSong(event, emit),
-                  moveToInSong: (event) => _moveToInSong(event, emit),
-                  setVolume: (event) => _setVolume(event, emit),
-                  songProgress: (event) => _songProgress(event, emit),
-                  toggleMute: (event) => _toggleMute(event, emit),
-                  togglePlayPause: (event) => _togglePlayPause(event, emit),
-                ),
+                (event, emit) => switch (event) {
+                  ChangeSong changeSong => _changeSong(changeSong, emit),
+                  MoveToInSong moveToInSong => _moveToInSong(moveToInSong, emit),
+                  SetVolume setVolume => _setVolume(setVolume, emit),
+                  SongProgress songProgress => _songProgress(songProgress, emit),
+                  ToggleMute toggleMute => _toggleMute(toggleMute, emit),
+                  TogglePlayPause toggle => _togglePlayPause(toggle, emit),
+                  PlaybackEvent event => throw UnimplementedError(
+                    'Unhandled event: $event',
+                  ),
+                },
               );
             }
 
@@ -2676,10 +2654,8 @@ steps:
 
             void _pausePlayback() => _currentlyPlayingSubscription!.cancel();
 
-            void _resumePlayback() =>
-                _currentlyPlayingSubscription = _startPlayingStream().listen(
-                  _handlePlaybackProgress,
-                );
+            void _resumePlayback() => _currentlyPlayingSubscription =
+                _startPlayingStream().listen(_handlePlaybackProgress);
 
             void _changeSong(ChangeSong event, Emitter<PlaybackState> emit) {
               emit(
@@ -2790,14 +2766,10 @@ steps:
             @override
             Widget build(BuildContext context) {
               return MouseRegion(
-                cursor:
-                    widget.clickable
-                        ? SystemMouseCursors.click
-                        : SystemMouseCursors.basic,
-                child: Container(
-                  // Add box decoration here
-                  child: widget.child,
-                ),
+                cursor: widget.clickable
+                    ? SystemMouseCursors.click
+                    : SystemMouseCursors.basic,
+                child: Container(child: widget.child),
               );
             }
           }
@@ -2828,23 +2800,20 @@ steps:
             Widget build(BuildContext context) {
               return LayoutBuilder(
                 builder: (context, dimens) {
-                  // Tablet Layout
-                  // Add maxWidth constraint check
                   return Scaffold(
                     body: Row(
                       children: [
                         NavigationRail(
                           extended: dimens.maxWidth >= 800,
                           minExtendedWidth: 180,
-                          destinations:
-                              destinations
-                                  .map(
-                                    (e) => NavigationRailDestination(
-                                      icon: e.icon,
-                                      label: Text(e.label),
-                                    ),
-                                  )
-                                  .toList(),
+                          destinations: destinations
+                              .map(
+                                (e) => NavigationRailDestination(
+                                  icon: e.icon,
+                                  label: Text(e.label),
+                                ),
+                              )
+                              .toList(),
                           selectedIndex: selectedIndex,
                           onDestinationSelected: onDestinationSelected,
                         ),
@@ -2852,9 +2821,6 @@ steps:
                       ],
                     ),
                   );
-                  // Add closing curly bracket
-
-                  // Add return for mobile layout
                 },
               );
             }
@@ -2915,7 +2881,7 @@ steps:
                           child: Text(
                             subtitle,
                             overflow: TextOverflow.ellipsis,
-                            style: context.labelSmall,
+                            style: context.labelSmall!.copyWith(fontSize: 10),
                             maxLines: 2,
                             textAlign: TextAlign.center,
                           ),
@@ -3103,10 +3069,9 @@ steps:
                 hoverChild: Center(
                   child: GestureDetector(
                     child: const Icon(Icons.play_arrow),
-                    onTap:
-                        () => BlocProvider.of<PlaybackBloc>(
-                          context,
-                        ).add(PlaybackEvent.changeSong(song)),
+                    onTap: () => BlocProvider.of<PlaybackBloc>(
+                      context,
+                    ).add(PlaybackEvent.changeSong(song)),
                   ),
                 ),
                 mode: hoverMode,
@@ -3146,18 +3111,16 @@ steps:
               final bloc = BlocProvider.of<PlaybackBloc>(context);
               return BlocBuilder<PlaybackBloc, PlaybackState>(
                 bloc: bloc,
-                builder:
-                    (context, state) => _BottomBar(
-                      artist: state.songWithProgress?.song.artist,
-                      isMuted: state.isMuted,
-                      isPlaying: state.isPlaying,
-                      preferredSize: preferredSize,
-                      progress: state.songWithProgress?.progress,
-                      song: state.songWithProgress?.song,
-                      togglePlayPause:
-                          () => bloc.add(const PlaybackEvent.togglePlayPause()),
-                      volume: state.volume,
-                    ),
+                builder: (context, state) => _BottomBar(
+                  artist: state.songWithProgress?.song.artist,
+                  isMuted: state.isMuted,
+                  isPlaying: state.isPlaying,
+                  preferredSize: preferredSize,
+                  progress: state.songWithProgress?.progress,
+                  song: state.songWithProgress?.song,
+                  togglePlayPause: () => bloc.add(const PlaybackEvent.togglePlayPause()),
+                  volume: state.volume,
+                ),
               );
             }
           }
@@ -3185,11 +3148,9 @@ steps:
 
             @override
             Widget build(BuildContext context) => LayoutBuilder(
-              builder:
-                  (context, constraints) =>
-                      constraints.isTablet
-                          ? _buildDesktopBar(context, constraints)
-                          : _buildMobileBar(context, constraints),
+              builder: (context, constraints) => constraints.isTablet
+                  ? _buildDesktopBar(context, constraints)
+                  : _buildMobileBar(context, constraints),
             );
 
             Widget _buildDesktopBar(BuildContext context, BoxConstraints constraints) {
@@ -3216,7 +3177,9 @@ steps:
                               isPlaying: isPlaying,
                               togglePlayPause: togglePlayPause,
                             ),
-                            Center(child: _ProgressBar(progress: progress, song: song)),
+                            Center(
+                              child: _ProgressBar(progress: progress, song: song),
+                            ),
                           ],
                         ),
                       ),
@@ -3230,18 +3193,17 @@ steps:
                             final overlay = Overlay.of(context);
                             OverlayEntry? entry;
                             entry = OverlayEntry(
-                              builder:
-                                  (context) => Stack(
-                                    children: [
-                                      Positioned(
-                                        child: _FullScreenPlayer(
-                                          onClose: () {
-                                            entry?.remove();
-                                          },
-                                        ),
-                                      ),
-                                    ],
+                              builder: (context) => Stack(
+                                children: [
+                                  Positioned(
+                                    child: _FullScreenPlayer(
+                                      onClose: () {
+                                        entry?.remove();
+                                      },
+                                    ),
                                   ),
+                                ],
+                              ),
                             );
                             overlay.insert(entry);
                           },
@@ -3269,18 +3231,17 @@ steps:
                       final overlay = Overlay.of(context);
                       OverlayEntry? entry;
                       entry = OverlayEntry(
-                        builder:
-                            (context) => Stack(
-                              children: [
-                                Positioned(
-                                  child: _MobilePlayer(
-                                    onClose: () {
-                                      entry?.remove();
-                                    },
-                                  ),
-                                ),
-                              ],
+                        builder: (context) => Stack(
+                          children: [
+                            Positioned(
+                              child: _MobilePlayer(
+                                onClose: () {
+                                  entry?.remove();
+                                },
+                              ),
                             ),
+                          ],
+                        ),
                       );
                       overlay.insert(entry);
                     },
@@ -3364,13 +3325,12 @@ steps:
                       children: [
                         const SizedBox(width: 10),
                         SizedBox(
-                          child:
-                              progress != null
-                                  ? Text(
-                                    progress!.toHumanizedString(),
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  )
-                                  : const Text('-'),
+                          child: progress != null
+                              ? Text(
+                                  progress!.toHumanizedString(),
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                )
+                              : const Text('-'),
                         ),
                         Expanded(
                           child: Slider(
@@ -3391,19 +3351,19 @@ steps:
                                 context,
                               ).add(const PlaybackEvent.togglePlayPause());
                             },
-                            activeColor:
-                                Theme.of(context).colorScheme.onTertiaryContainer,
+                            activeColor: Theme.of(
+                              context,
+                            ).colorScheme.onTertiaryContainer,
                             inactiveColor: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                         SizedBox(
-                          child:
-                              song != null
-                                  ? Text(
-                                    song!.length.toHumanizedString(),
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  )
-                                  : const Text('-'),
+                          child: song != null
+                              ? Text(
+                                  song!.length.toHumanizedString(),
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                )
+                              : const Text('-'),
                         ),
                         const SizedBox(width: 10),
                       ],
@@ -3434,10 +3394,9 @@ steps:
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap:
-                            () => BlocProvider.of<PlaybackBloc>(
-                              context,
-                            ).add(const PlaybackEvent.toggleMute()),
+                        onTap: () => BlocProvider.of<PlaybackBloc>(
+                          context,
+                        ).add(const PlaybackEvent.toggleMute()),
                         child: Icon(!isMuted ? Icons.volume_mute : Icons.volume_off),
                       ),
                       Expanded(
@@ -3446,10 +3405,9 @@ steps:
                           min: 0,
                           max: 1,
                           divisions: 100,
-                          onChanged:
-                              (newValue) => BlocProvider.of<PlaybackBloc>(
-                                context,
-                              ).add(PlaybackEvent.setVolume(newValue)),
+                          onChanged: (newValue) => BlocProvider.of<PlaybackBloc>(
+                            context,
+                          ).add(PlaybackEvent.setVolume(newValue)),
                           activeColor: Theme.of(context).colorScheme.onTertiaryContainer,
                           inactiveColor: Theme.of(context).colorScheme.onSurface,
                         ),
@@ -3526,10 +3484,9 @@ steps:
                 child: SizedBox(
                   width: 70,
                   height: 70,
-                  child:
-                      song != null
-                          ? Image.asset(song!.image.image)
-                          : Container(color: Colors.pink[100]),
+                  child: song != null
+                      ? Image.asset(song!.image.image)
+                      : Container(color: Colors.pink[100]),
                 ),
               );
             }
@@ -3600,25 +3557,24 @@ steps:
               final bloc = BlocProvider.of<PlaybackBloc>(context);
               return BlocBuilder<PlaybackBloc, PlaybackState>(
                 bloc: bloc,
-                builder:
-                    (context, state) => Theme(
-                      data: ThemeProvider.of(context).dark(),
-                      child: Scaffold(
-                        body: LayoutBuilder(
-                          builder: (context, dimens) {
-                            return MouseRegion(
-                              onHover: (_) {
-                                setState(() {
-                                  _showControls = true;
-                                });
-                                hideControls();
-                              },
-                              child: buildPlayer(context, state, dimens),
-                            );
+                builder: (context, state) => Theme(
+                  data: ThemeProvider.of(context).dark(),
+                  child: Scaffold(
+                    body: LayoutBuilder(
+                      builder: (context, dimens) {
+                        return MouseRegion(
+                          onHover: (_) {
+                            setState(() {
+                              _showControls = true;
+                            });
+                            hideControls();
                           },
-                        ),
-                      ),
+                          child: buildPlayer(context, state, dimens),
+                        );
+                      },
                     ),
+                  ),
+                ),
               );
             }
 
@@ -3634,25 +3590,23 @@ steps:
                 fit: StackFit.expand,
                 children: [
                   Positioned.fill(
-                    child:
-                        current == null
-                            ? const Center(child: Text('No song selected'))
-                            : Container(
-                              color: context.colors.shadow,
-                              child: Opacity(
-                                opacity: 0.3,
-                                child: Image.asset(song!.image.image, fit: BoxFit.cover),
-                              ),
+                    child: current == null
+                        ? const Center(child: Text('No song selected'))
+                        : Container(
+                            color: context.colors.shadow,
+                            child: Opacity(
+                              opacity: 0.3,
+                              child: Image.asset(song!.image.image, fit: BoxFit.cover),
                             ),
+                          ),
                   ),
                   Positioned(
                     top: 20,
                     right: 20,
                     child: IconButton(
-                      color:
-                          song != null
-                              ? context.colors.onSurface
-                              : context.colors.onSurface,
+                      color: song != null
+                          ? context.colors.onSurface
+                          : context.colors.onSurface,
                       icon: const Icon(Icons.fullscreen_exit),
                       onPressed: widget.onClose,
                     ),
@@ -3710,8 +3664,8 @@ steps:
                           scale: 1.5,
                           child: _PlaybackControls(
                             isPlaying: state.isPlaying,
-                            togglePlayPause:
-                                () => bloc.add(const PlaybackEvent.togglePlayPause()),
+                            togglePlayPause: () =>
+                                bloc.add(const PlaybackEvent.togglePlayPause()),
                           ),
                         ),
                       ),
@@ -3732,17 +3686,16 @@ steps:
               final bloc = BlocProvider.of<PlaybackBloc>(context);
               return BlocBuilder<PlaybackBloc, PlaybackState>(
                 bloc: bloc,
-                builder:
-                    (context, state) => Theme(
-                      data: ThemeProvider.of(context).dark(),
-                      child: Scaffold(
-                        body: LayoutBuilder(
-                          builder: (context, dimens) {
-                            return buildPlayer(context, state, dimens);
-                          },
-                        ),
-                      ),
+                builder: (context, state) => Theme(
+                  data: ThemeProvider.of(context).dark(),
+                  child: Scaffold(
+                    body: LayoutBuilder(
+                      builder: (context, dimens) {
+                        return buildPlayer(context, state, dimens);
+                      },
                     ),
+                  ),
+                ),
               );
             }
 
@@ -3756,28 +3709,26 @@ steps:
               return Stack(
                 children: [
                   Positioned.fill(
-                    child:
-                        current == null
-                            ? const Center(child: Text('No song selected'))
-                            : Container(
-                              color: context.colors.shadow,
-                              child: Opacity(
-                                opacity: 0.3,
-                                child: Image.asset(
-                                  current.song.image.image,
-                                  fit: BoxFit.cover,
-                                ),
+                    child: current == null
+                        ? const Center(child: Text('No song selected'))
+                        : Container(
+                            color: context.colors.shadow,
+                            child: Opacity(
+                              opacity: 0.3,
+                              child: Image.asset(
+                                current.song.image.image,
+                                fit: BoxFit.cover,
                               ),
                             ),
+                          ),
                   ),
                   Positioned(
                     top: 20,
                     left: 20,
                     child: IconButton(
-                      color:
-                          current?.song != null
-                              ? context.colors.onSurface
-                              : context.colors.onSurface,
+                      color: current?.song != null
+                          ? context.colors.onSurface
+                          : context.colors.onSurface,
                       icon: const RotatedBox(
                         quarterTurns: 1,
                         child: Icon(Icons.chevron_right),
@@ -3832,8 +3783,8 @@ steps:
                               scale: 1.5,
                               child: _PlaybackControls(
                                 isPlaying: state.isPlaying,
-                                togglePlayPause:
-                                    () => bloc.add(const PlaybackEvent.togglePlayPause()),
+                                togglePlayPause: () =>
+                                    bloc.add(const PlaybackEvent.togglePlayPause()),
                               ),
                             ),
                           ),
@@ -4016,7 +3967,9 @@ steps:
 
             @override
             Widget build(BuildContext context) {
-              return Row(children: [Expanded(child: Center(child: child))]);
+              return Row(
+                children: [Expanded(child: Center(child: child))],
+              );
             }
           }
       - name: Add lib/src/shared/views/clickable.dart
@@ -4076,37 +4029,32 @@ steps:
               final bloc = BlocProvider.of<PlaybackBloc>(context);
               return BlocBuilder<PlaybackBloc, PlaybackState>(
                 bloc: bloc,
-                builder:
-                    (context, state) => LayoutBuilder(
-                      builder: (context, dimens) {
-                        void onSelected(int index) {
-                          final destination = router.destinations[index];
-                          go.GoRouter.of(context).go(destination.route);
-                        }
+                builder: (context, state) => LayoutBuilder(
+                  builder: (context, dimens) {
+                    void onSelected(int index) {
+                      final destination = router.destinations[index];
+                      go.GoRouter.of(context).go(destination.route);
+                    }
 
-                        final current = state.songWithProgress;
-                        return AdaptiveNavigation(
-                          key: _navigationRailKey,
-                          destinations:
-                              router.destinations
-                                  .map(
-                                    (e) => NavigationDestination(
-                                      icon: e.icon,
-                                      label: e.label,
-                                    ),
-                                  )
-                                  .toList(),
-                          selectedIndex: currentIndex,
-                          onDestinationSelected: onSelected,
-                          child: Column(
-                            children: [
-                              Expanded(child: _Switcher(key: _switcherKey, child: child)),
-                              if (current != null) const BottomBar(),
-                            ],
+                    final current = state.songWithProgress;
+                    return AdaptiveNavigation(
+                      key: _navigationRailKey,
+                      destinations: router.destinations
+                          .map((e) => NavigationDestination(icon: e.icon, label: e.label))
+                          .toList(),
+                      selectedIndex: currentIndex,
+                      onDestinationSelected: onSelected,
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: _Switcher(key: _switcherKey, child: child),
                           ),
-                        );
-                      },
-                    ),
+                          if (current != null) const BottomBar(),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               );
             }
           }
@@ -4121,12 +4069,12 @@ steps:
               return UniversalPlatform.isDesktop
                   ? child
                   : AnimatedSwitcher(
-                    key: key,
-                    duration: const Duration(milliseconds: 200),
-                    switchInCurve: Curves.easeInOut,
-                    switchOutCurve: Curves.easeInOut,
-                    child: child,
-                  );
+                      key: key,
+                      duration: const Duration(milliseconds: 200),
+                      switchInCurve: Curves.easeInOut,
+                      switchOutCurve: Curves.easeInOut,
+                      child: child,
+                    );
             }
           }
       - name: Add lib/src/shared/views/views.dart
@@ -4135,7 +4083,7 @@ steps:
           // Copyright 2022 The Flutter Authors. All rights reserved.
           // Use of this source code is governed by a BSD-style license that can be
           // found in the LICENSE file.
-          
+
           export 'adaptive_table.dart';
           export 'article_content.dart';
           export 'bottom_bar.dart';
@@ -4168,10 +4116,9 @@ steps:
             Widget build(BuildContext context) {
               final isDark = Theme.of(context).brightness == Brightness.dark;
               return IconButton(
-                icon:
-                    Theme.of(context).brightness == Brightness.light
-                        ? const Icon(Icons.brightness_3)
-                        : const Icon(Icons.brightness_7),
+                icon: Theme.of(context).brightness == Brightness.light
+                    ? const Icon(Icons.brightness_3)
+                    : const Icon(Icons.brightness_7),
                 onPressed: () {
                   final themeProvider = ThemeProvider.of(context);
                   final settings = themeProvider.settings.value;
@@ -4234,9 +4181,8 @@ steps:
                                     decoration: TextDecoration.underline,
                                   ),
                                 ),
-                                onTap:
-                                    () =>
-                                        launchUrl(Uri.parse('https://docs.flutter.dev')),
+                                onTap: () =>
+                                    launchUrl(Uri.parse('https://docs.flutter.dev')),
                               ),
                             ),
                           ],
@@ -4336,17 +4282,17 @@ steps:
                   cursor: isHovered ? SystemMouseCursors.click : MouseCursor.defer,
                   onEnter: (_) => setMaterialState(WidgetState.hovered, true),
                   onExit: (_) => setMaterialState(WidgetState.hovered, false),
-                  child:
-                      widget.mode == HoverMode.replace
-                          ? _buildReplaceableChildren()
-                          : _buildChildrenStack(),
+                  child: widget.mode == HoverMode.replace
+                      ? _buildReplaceableChildren()
+                      : _buildChildrenStack(),
                 ),
               );
             }
 
             Widget _buildChildrenStack() {
-              Widget child =
-                  isHovered ? Opacity(opacity: 0.2, child: widget.child) : widget.child;
+              Widget child = isHovered
+                  ? Opacity(opacity: 0.2, child: widget.child)
+                  : widget.child;
               return Stack(children: <Widget>[child, if (isHovered) widget.hoverChild]);
             }
 
@@ -4468,9 +4414,10 @@ steps:
             @override
             void initState() {
               super.initState();
-              _focusNode = FocusNode(debugLabel: widget.title)..addListener(() {
-                setState(() => _isSelected = _focusNode.hasPrimaryFocus);
-              });
+              _focusNode = FocusNode(debugLabel: widget.title)
+                ..addListener(() {
+                  setState(() => _isSelected = _focusNode.hasPrimaryFocus);
+                });
             }
 
             @override
@@ -4518,50 +4465,735 @@ steps:
 
           class _MyAppState extends State<MyApp> {
             final settings = ValueNotifier(
-              ThemeSettings(
-                sourceColor: Colors.pink, // Replace this color
-                themeMode: ThemeMode.system,
-              ),
+              ThemeSettings(sourceColor: Colors.pink, themeMode: ThemeMode.system),
             );
             @override
             Widget build(BuildContext context) {
               return BlocProvider<PlaybackBloc>(
                 create: (context) => PlaybackBloc(),
                 child: DynamicColorBuilder(
-                  builder:
-                      (lightDynamic, darkDynamic) => ThemeProvider(
-                        lightDynamic: lightDynamic,
-                        darkDynamic: darkDynamic,
-                        settings: settings,
-                        child: NotificationListener<ThemeSettingChange>(
-                          onNotification: (notification) {
-                            settings.value = notification.settings;
-                            return true;
-                          },
-                          child: ValueListenableBuilder<ThemeSettings>(
-                            valueListenable: settings,
-                            builder: (context, value, _) {
-                              // Create theme instance
-                              return MaterialApp.router(
-                                debugShowCheckedModeBanner: false,
-                                title: 'Flutter Demo',
-                                // Add theme
-                                // Add dark theme
-                                // Add theme mode
-                                routeInformationParser: appRouter.routeInformationParser,
-                                routeInformationProvider:
-                                    appRouter.routeInformationProvider,
-                                routerDelegate: appRouter.routerDelegate,
-                                builder: (context, child) {
-                                  return PlayPauseListener(child: child!);
-                                },
-                              );
+                  builder: (lightDynamic, darkDynamic) => ThemeProvider(
+                    lightDynamic: lightDynamic,
+                    darkDynamic: darkDynamic,
+                    settings: settings,
+                    child: NotificationListener<ThemeSettingChange>(
+                      onNotification: (notification) {
+                        settings.value = notification.settings;
+                        return true;
+                      },
+                      child: ValueListenableBuilder<ThemeSettings>(
+                        valueListenable: settings,
+                        builder: (context, value, _) {
+                          return MaterialApp.router(
+                            debugShowCheckedModeBanner: false,
+                            title: 'Flutter Demo',
+                            routeInformationParser: appRouter.routeInformationParser,
+                            routeInformationProvider: appRouter.routeInformationProvider,
+                            routerDelegate: appRouter.routerDelegate,
+                            builder: (context, child) {
+                              return PlayPauseListener(child: child!);
                             },
-                          ),
-                        ),
+                          );
+                        },
                       ),
+                    ),
+                  ),
                 ),
               );
+            }
+          }
+      - name: Add lib/src/utils/adaptive_breakpoints.dart
+        path: myartist/lib/src/utils/adaptive_breakpoints.dart
+        replace-contents: |
+          // Copyright 2020, the Flutter project authors. Please see the AUTHORS file
+          // for details. All rights reserved. Use of this source code is governed by a
+          // BSD-style license that can be found in the LICENSE file.
+          import 'package:flutter/material.dart';
+
+          /// Adaptive Window in Material has five different window sizes. Each window size
+          /// represents a range of devices.
+          ///
+          /// Extra small represents phones and small tablets in portrait view.
+          /// Small represents tablets in portrait view and phones in landscape view.
+          /// Medium represents large tablets in landscape view.
+          /// Large represents computer screens.
+          /// Extra large represents large computer screens.
+          ///
+          /// https://material.io/design/layout/responsive-layout-grid.html#breakpoints
+          class AdaptiveWindowType {
+            const AdaptiveWindowType._({
+              required this.name,
+              required this.relativeSize,
+              required this.widthRangeValues,
+              required this.heightLandscapeRangeValues,
+              required this.heightPortraitRangeValues,
+            });
+
+            /// Name based on the [AdaptiveWindowType].
+            ///
+            /// Can be: xsmall, small, medium, large or xlarge
+            final String name;
+
+            /// Used to set custom comparison operators for the [AdaptiveWindowType] enum.
+            final int relativeSize;
+
+            /// Valid range of width for this window type.
+            final RangeValues widthRangeValues;
+
+            /// Valid range of height for this window type on landscape mode.
+            final RangeValues heightLandscapeRangeValues;
+
+            /// Valid range of height for this window type on portrait mode.
+            final RangeValues heightPortraitRangeValues;
+
+            static const AdaptiveWindowType xsmall = AdaptiveWindowType._(
+              name: 'xsmall',
+              relativeSize: 0,
+              widthRangeValues: RangeValues(0, 599),
+              heightLandscapeRangeValues: RangeValues(0, 359),
+              heightPortraitRangeValues: RangeValues(0, 959),
+            );
+
+            static const AdaptiveWindowType small = AdaptiveWindowType._(
+              name: 'small',
+              relativeSize: 1,
+              widthRangeValues: RangeValues(600, 1023),
+              heightLandscapeRangeValues: RangeValues(360, 719),
+              heightPortraitRangeValues: RangeValues(360, 1599),
+            );
+
+            static const AdaptiveWindowType medium = AdaptiveWindowType._(
+              name: 'medium',
+              relativeSize: 2,
+              widthRangeValues: RangeValues(1024, 1439),
+              heightLandscapeRangeValues: RangeValues(720, 959),
+              heightPortraitRangeValues: RangeValues(720, 1919),
+            );
+
+            static const AdaptiveWindowType large = AdaptiveWindowType._(
+              name: 'large',
+              relativeSize: 3,
+              widthRangeValues: RangeValues(1440, 1919),
+              heightLandscapeRangeValues: RangeValues(960, 1279),
+              heightPortraitRangeValues: RangeValues(1920, double.infinity),
+            );
+
+            static const AdaptiveWindowType xlarge = AdaptiveWindowType._(
+              name: 'xlarge',
+              relativeSize: 4,
+              widthRangeValues: RangeValues(1920, double.infinity),
+              heightLandscapeRangeValues: RangeValues(1280, double.infinity),
+              heightPortraitRangeValues: RangeValues(1920, double.infinity),
+            );
+
+            bool operator <=(AdaptiveWindowType other) =>
+                relativeSize <= other.relativeSize;
+
+            bool operator <(AdaptiveWindowType other) =>
+                relativeSize < other.relativeSize;
+
+            bool operator >=(AdaptiveWindowType other) =>
+                relativeSize >= other.relativeSize;
+
+            bool operator >(AdaptiveWindowType other) =>
+                relativeSize > other.relativeSize;
+          }
+
+          /// This class represents the Material breakpoint system entry.
+          /// https://material.io/design/layout/responsive-layout-grid.html#breakpoints
+          class BreakpointSystemEntry {
+            const BreakpointSystemEntry({
+              required this.range,
+              this.portrait,
+              this.landscape,
+              required this.adaptiveWindowType,
+              required this.columns,
+              required this.margin,
+              required this.gutter,
+            });
+
+            /// The breakpoint range values represents a width range.
+            final RangeValues range;
+
+            /// Type of device which uses this breakpoint range in portrait view.
+            final String? portrait;
+
+            /// Type of device which uses this breakpoint range in landscape view.
+            final String? landscape;
+
+            /// Material generalizes the device size into five different windows: extra
+            /// small, small, medium, large, and extra large.
+            ///
+            /// The adaptive window represents a set of similar devices. For example, if
+            /// you want to create an adaptive layout for phones and small tablets you
+            /// would check if your window width is within the range of xsmall and s. If your
+            /// user has a bigger window size than you would create a different layout for
+            /// larger screens.
+            final AdaptiveWindowType adaptiveWindowType;
+
+            /// The number of columns in this breakpoint system entry.
+            /// https://material.io/design/layout/responsive-layout-grid.html#columns-gutters-and-margins
+            final int columns;
+
+            /// The size of margins in pixels in this breakpoint system entry.
+            /// Typically the same as gutters.
+            /// https://material.io/design/layout/responsive-layout-grid.html#columns-gutters-and-margins
+            final double margin;
+
+            /// The size of gutters in pixels in this breakpoint system entry. Typically
+            /// the same as margins.
+            ///
+            /// Gutters represents the space between the columns.
+            ///
+            /// https://material.io/design/layout/responsive-layout-grid.html#columns-gutters-and-margins
+            final double gutter;
+          }
+
+          /// This list represents the material breakpoint system.
+          /// https://material.io/design/layout/responsive-layout-grid.html#breakpoints
+          ///
+          /// This list is in sequential order.
+          const List<BreakpointSystemEntry> breakpointSystem = [
+            BreakpointSystemEntry(
+              range: RangeValues(0, 359),
+              portrait: 'small handset',
+              adaptiveWindowType: AdaptiveWindowType.xsmall,
+              columns: 4,
+              margin: 16.0,
+              gutter: 16.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(360, 399),
+              portrait: 'medium handset',
+              adaptiveWindowType: AdaptiveWindowType.xsmall,
+              columns: 4,
+              margin: 16.0,
+              gutter: 16.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(400, 479),
+              portrait: 'large handset',
+              adaptiveWindowType: AdaptiveWindowType.xsmall,
+              columns: 4,
+              margin: 16.0,
+              gutter: 16.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(480, 599),
+              portrait: 'large handset',
+              landscape: 'small handset',
+              adaptiveWindowType: AdaptiveWindowType.xsmall,
+              columns: 4,
+              margin: 16.0,
+              gutter: 16.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(600, 719),
+              portrait: 'small tablet',
+              landscape: 'medium handset',
+              adaptiveWindowType: AdaptiveWindowType.small,
+              columns: 8,
+              margin: 16.0,
+              gutter: 16.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(720, 839),
+              portrait: 'large tablet',
+              landscape: 'large handset',
+              adaptiveWindowType: AdaptiveWindowType.small,
+              columns: 8,
+              margin: 24.0,
+              gutter: 24.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(840, 959),
+              portrait: 'large tablet',
+              landscape: 'large handset',
+              adaptiveWindowType: AdaptiveWindowType.small,
+              columns: 12,
+              margin: 24.0,
+              gutter: 24.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(960, 1023),
+              landscape: 'small tablet',
+              adaptiveWindowType: AdaptiveWindowType.small,
+              columns: 12,
+              margin: 24.0,
+              gutter: 24.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(1024, 1279),
+              landscape: 'large tablet',
+              adaptiveWindowType: AdaptiveWindowType.medium,
+              columns: 12,
+              margin: 24.0,
+              gutter: 24.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(1280, 1439),
+              landscape: 'large tablet',
+              adaptiveWindowType: AdaptiveWindowType.medium,
+              columns: 12,
+              margin: 24.0,
+              gutter: 24.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(1440, 1599),
+              portrait: 'small handset',
+              adaptiveWindowType: AdaptiveWindowType.large,
+              columns: 12,
+              margin: 24.0,
+              gutter: 24.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(1600, 1919),
+              portrait: 'small handset',
+              adaptiveWindowType: AdaptiveWindowType.large,
+              columns: 12,
+              margin: 24.0,
+              gutter: 24.0,
+            ),
+            BreakpointSystemEntry(
+              range: RangeValues(1920, double.infinity),
+              portrait: 'small handset',
+              adaptiveWindowType: AdaptiveWindowType.xlarge,
+              columns: 12,
+              margin: 24.0,
+              gutter: 24.0,
+            ),
+          ];
+
+          /// Returns the [AdaptiveWindowType] to the user.
+          ///
+          /// This is useful when the user wants to compare the MediaQuery to the current
+          /// window size.
+          AdaptiveWindowType getWindowType(BuildContext context) {
+            return getBreakpointEntry(context).adaptiveWindowType;
+          }
+
+          /// Returns the [BreakpointSystemEntry] to the user.
+          ///
+          /// Typically the developer will use the getWindowType function. Using this
+          /// function gives the developer access to the specific breakpoint entry and
+          /// it's variables.
+          BreakpointSystemEntry getBreakpointEntry(BuildContext context) {
+            double width = MediaQuery.sizeOf(context).width;
+            for (BreakpointSystemEntry entry in breakpointSystem) {
+              if (entry.range.start <= width && width < entry.range.end + 1) {
+                return entry;
+              }
+            }
+            throw AssertionError('Something unexpected happened');
+          }
+      - name: Add lib/src/utils/adaptive_column.dart
+        path: myartist/lib/src/utils/adaptive_column.dart
+        replace-contents: |
+          // Copyright 2020, the Flutter project authors. Please see the AUTHORS file
+          // for details. All rights reserved. Use of this source code is governed by a
+          // BSD-style license that can be found in the LICENSE file.
+
+          import 'package:flutter/material.dart';
+
+          import 'adaptive_breakpoints.dart';
+          import 'adaptive_container.dart';
+
+          /// The [AdaptiveColumn] follows the Material guideline for responsive grids.
+          ///
+          /// https://material.io/design/layout/responsive-layout-grid.html#columns-gutters-and-margins
+          ///
+          /// This widget intigrates with the [AdaptiveContainer] widget.
+          /// The [AdaptiveContainer] widget has a parameter called columns which represents
+          /// the amount of columns it should take according to the breakpoints package.
+          ///
+          /// So if the user has 6 adaptive container and each container represents two columns
+          /// then the 6 adaptive container would all fit within one Row on a extra large screen
+          /// because extra large screens have 12 columns per row.
+          ///
+          /// Learn more about the breakpoint system:
+          ///
+          /// https://material.io/design/layout/responsive-layout-grid.html#breakpoints
+          class AdaptiveColumn extends StatelessWidget {
+            /// Creates a vertical array of children. Going from left to right and then
+            /// top to bottom.
+            ///
+            /// This class has a responsive layout that is based of the adaptive breakpoints
+            /// package. The user puts in [AdaptiveContainer] widgets as children and each
+            /// child has a columm parameter. This represents the amount of columns it takes
+            /// up in its current row. So if the child has three [AdaptiveContainer] widgets
+            /// with each column set to 4 than on an extra-small screen each container would use up
+            /// the entire width of the device. On an extra-large screen the three containers
+            /// would fit across the row. This is because extra large devices allow up to
+            /// 12 columns to fit within the space.
+            ///
+            /// To see an example visit:
+            /// https://adaptive-components.web.app/#/
+            const AdaptiveColumn({
+              this.gutter,
+              this.margin,
+              required this.children,
+              super.key,
+            }) : assert(margin == null || margin >= 0),
+                 assert(gutter == null || gutter >= 0);
+
+            /// Empty space at the left and right of this widget.
+            ///
+            /// By default the margins will be set differently on different devices. This
+            /// double value will be dependent of the breakpoint entry of the current screen.
+            ///
+            /// Learn more at https://material.io/design/layout/responsive-layout-grid.html#breakpoints
+            final double? margin;
+
+            /// Represents the space between children.
+            ///
+            /// By default the gutter will be set differently on different devices. This
+            /// double value will be dependent of the breakpoint entry of the current screen.
+            ///
+            /// Learn more at https://material.io/design/layout/responsive-layout-grid.html#breakpoints
+            final double? gutter;
+
+            /// The List of [AdaptiveContainer]. Adaptive container neeeds to be used
+            /// because the widget has a columnSpan parameter. This parameter represents the
+            /// amount of columns this widget should incompass.
+            ///
+            /// By default it is set to 1.
+            final List<AdaptiveContainer> children;
+
+            @override
+            Widget build(BuildContext context) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  BreakpointSystemEntry entry = getBreakpointEntry(context);
+                  final double effectiveMargin = margin ?? entry.margin;
+                  final double effectiveGutter = gutter ?? entry.gutter;
+
+                  return Container(
+                    margin: EdgeInsets.symmetric(horizontal: effectiveMargin),
+                    constraints: BoxConstraints(
+                      minWidth: entry.adaptiveWindowType.widthRangeValues.start,
+                      maxWidth: entry.adaptiveWindowType.widthRangeValues.end,
+                    ),
+                    child: Wrap(
+                      runSpacing: 8.0,
+                      children: () {
+                        int currentColumns = 0;
+                        int totalGutters = 0;
+                        List<Widget> children = [];
+                        final List<AdaptiveContainer> row = [];
+
+                        for (AdaptiveContainer child in this.children) {
+                          // The if statement checks if the adaptiveContainer child fits
+                          // within the adaptive constraints.
+                          if (child.constraints.withinAdaptiveConstraint(context)) {
+                            row.add(child);
+                            currentColumns += child.columnSpan;
+
+                            if (currentColumns < entry.columns) {
+                              totalGutters++;
+                            } else {
+                              if (currentColumns > entry.columns) {
+                                totalGutters--;
+                              }
+                              int rowGutters = 0;
+                              for (AdaptiveContainer rowItem in row) {
+                                // Periodic width is the width of 1 column + 1 gutter.
+                                double periodicWidth =
+                                    (MediaQuery.sizeOf(context).width -
+                                        effectiveMargin * 2 +
+                                        effectiveGutter) /
+                                    entry.columns;
+
+                                // For a row item with a column span of k, its width is
+                                // k * column + (k - 1) * gutter, which equals
+                                // k * (column + gutter) - gutter, which is
+                                // k * periodicWidth - gutter.
+                                double maxWidth =
+                                    periodicWidth * rowItem.columnSpan - effectiveGutter;
+                                children.add(
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minWidth: maxWidth,
+                                      maxWidth: maxWidth,
+                                    ),
+                                    child: rowItem,
+                                  ),
+                                );
+
+                                if (rowGutters < totalGutters && 1 < row.length) {
+                                  children.add(
+                                    SizedBox(width: effectiveGutter, child: Container()),
+                                  );
+                                  rowGutters++;
+                                }
+                              }
+                              totalGutters = 0;
+                              currentColumns = 0;
+                              row.clear();
+                            }
+                          }
+                        }
+                        return children;
+                      }(),
+                    ),
+                  );
+                },
+              );
+            }
+          }
+      - name: Add lib/src/utils/adaptive_components.dart
+        path: myartist/lib/src/utils/adaptive_components.dart
+        replace-contents: |
+          // Copyright 2020, the Flutter project authors. Please see the AUTHORS file
+          // for details. All rights reserved. Use of this source code is governed by a
+          // BSD-style license that can be found in the LICENSE file.
+
+          export 'adaptive_column.dart';
+          export 'adaptive_container.dart';
+      - name: Add lib/src/utils/adaptive_container.dart
+        path: myartist/lib/src/utils/adaptive_container.dart
+        replace-contents: |
+          // Copyright 2020, the Flutter project authors. Please see the AUTHORS file
+          // for details. All rights reserved. Use of this source code is governed by a
+          // BSD-style license that can be found in the LICENSE file.
+
+          import 'package:flutter/material.dart';
+
+          import 'adaptive_breakpoints.dart';
+
+          /// [AdaptiveContainer] lets you create a [Container] with adaptive constraints.
+          ///
+          /// The AdaptiveContainer does everything a normal container does but with
+          /// adaptive constraints. For more information go to one of the links below.
+          ///
+          /// https://api.flutter.dev/flutter/widgets/Container-class.html
+          /// https://material.io/design/layout/responsive-layout-grid.html#breakpoints
+          ///
+          /// This class is useful whenever you want a container to only be active in
+          /// certain [AdaptiveWindowType].
+          class AdaptiveContainer extends StatelessWidget {
+            /// Creates a widget that combines common painting, positioning, and sizing widgets.
+            ///
+            /// The `color` and `decoration` arguments cannot both be supplied, since
+            /// it would potentially result in the decoration drawing over the background
+            /// color. To supply a decoration with a color, use `decoration:
+            /// BoxDecoration(color: color)`.
+            AdaptiveContainer({
+              super.key,
+              this.alignment,
+              this.padding,
+              this.color,
+              this.decoration,
+              this.foregroundDecoration,
+              this.margin,
+              this.transform,
+              this.height,
+              this.child,
+              this.clipBehavior = Clip.none,
+              constraints,
+              this.columnSpan = 1,
+            }) : assert(margin == null || margin.isNonNegative),
+                 assert(padding == null || padding.isNonNegative),
+                 assert(decoration == null || decoration.debugAssertIsValid()),
+                 assert(
+                   color == null || decoration == null,
+                   'Cannot provide both a color and a decoration\n'
+                   'To provide both, use "decoration: BoxDecoration(color: color)".',
+                 ) {
+              this.constraints = constraints ?? const AdaptiveConstraints();
+            }
+
+            /// The [child] contained by the container.
+            ///
+            /// If null, and if the [constraints] are unbounded or also null, the
+            /// container will expand to fill all available space in its parent, unless
+            /// the parent provides unbounded constraints, in which case the container
+            /// will attempt to be as small as possible.
+            final Widget? child;
+
+            /// Represents how height the container should be.
+            final double? height;
+
+            /// Creates constraints for adaptive windows.
+            ///
+            /// This is used by the builder to see what type of screen the user wants this
+            /// [AdaptiveContainer] to fit within.
+            late final AdaptiveConstraints constraints;
+
+            /// columnSpan is used with [AdaptiveColumn] to represent
+            /// the amount of columns that this widget will fill up within a certain [Flex]
+            /// range.
+            ///
+            /// By default the columns will only represent one column space. If you want
+            /// this content of this widget to be shown increase it. There can be at most
+            /// 12 columns per flex range.
+            ///
+            /// Learn more by visiting the Material website:
+            /// https://material.io/design/layout/responsive-layout-grid.html#breakpoints
+            final int columnSpan;
+
+            /// Align the [child] within the container.
+            ///
+            /// If non-null, the container will expand to fill its parent and position its
+            /// child within itself according to the given value. If the incoming
+            /// constraints are unbounded, then the child will be shrink-wrapped instead.
+            ///
+            /// Ignored if [child] is null.
+            ///
+            /// See also:
+            ///
+            ///  * [Alignment], a class with convenient constants typically used to
+            ///    specify an [AlignmentGeometry].
+            ///  * [AlignmentDirectional], like [Alignment] for specifying alignments
+            ///    relative to text direction.
+            final AlignmentGeometry? alignment;
+
+            /// Empty space to inscribe inside the [decoration]. The [child], if any, is
+            /// placed inside this padding.
+            ///
+            /// This padding is in addition to any padding inherent in the [decoration];
+            /// see [Decoration.padding].
+            final EdgeInsetsGeometry? padding;
+
+            /// The color to paint behind the [child].
+            ///
+            /// This property should be preferred when the background is a simple color.
+            /// For other cases, such as gradients or images, use the [decoration]
+            /// property.
+            ///
+            /// If the [decoration] is used, this property must be null. A background
+            /// color may still be painted by the [decoration] even if this property is
+            /// null.
+            final Color? color;
+
+            /// The decoration to paint behind the [child].
+            ///
+            /// Use the [color] property to specify a simple solid color.
+            ///
+            /// The [child] is not clipped to the decoration. To clip a child to the shape
+            /// of a particular [ShapeDecoration], consider using a [ClipPath] widget.
+            final Decoration? decoration;
+
+            /// The decoration to paint in front of the [child].
+            final Decoration? foregroundDecoration;
+
+            /// Empty space to surround the [decoration] and [child].
+            final EdgeInsetsGeometry? margin;
+
+            /// The transformation matrix to apply before painting the container.
+            final Matrix4? transform;
+
+            /// The clip behavior when [Container.decoration] has a clipPath.
+            ///
+            /// Defaults to [Clip.none].
+            final Clip clipBehavior;
+
+            @override
+            Widget build(BuildContext context) {
+              return LayoutBuilder(
+                builder: (context, boxConstraints) {
+                  if (constraints.withinAdaptiveConstraint(context)) {
+                    return Container(
+                      alignment: alignment,
+                      padding: padding,
+                      color: color,
+                      decoration: decoration,
+                      foregroundDecoration: foregroundDecoration,
+                      transform: transform,
+                      clipBehavior: clipBehavior,
+                      height: height,
+                      margin: margin,
+                      child: child,
+                    );
+                  } else {
+                    /// Since this container is not within the adaptive constraints.
+                    /// No widget must be returned but since you can't return no widget we
+                    /// are returning a [LimitedBox] which is a very efficent widget.
+                    return LimitedBox(
+                      maxWidth: 0.0,
+                      maxHeight: 0.0,
+                      child: ConstrainedBox(constraints: const BoxConstraints.expand()),
+                    );
+                  }
+                },
+              );
+            }
+          }
+
+          /// Used to see if a range of [AdaptiveWindowType] should be shown in the window.
+          /// If the user sets one of the variables below to true than that window type
+          /// should be shown within the [AdaptiveContainer].
+          class AdaptiveConstraints {
+            const AdaptiveConstraints({
+              this.xsmall = true,
+              this.small = true,
+              this.medium = true,
+              this.large = true,
+              this.xlarge = true,
+            });
+
+            const AdaptiveConstraints.xsmall({
+              this.xsmall = true,
+              this.small = false,
+              this.medium = false,
+              this.large = false,
+              this.xlarge = false,
+            });
+
+            const AdaptiveConstraints.small({
+              this.xsmall = false,
+              this.small = true,
+              this.medium = false,
+              this.large = false,
+              this.xlarge = false,
+            });
+
+            const AdaptiveConstraints.medium({
+              this.xsmall = false,
+              this.small = false,
+              this.medium = true,
+              this.large = false,
+              this.xlarge = false,
+            });
+
+            const AdaptiveConstraints.large({
+              this.xsmall = false,
+              this.small = false,
+              this.medium = false,
+              this.large = true,
+              this.xlarge = false,
+            });
+
+            const AdaptiveConstraints.xlarge({
+              this.xsmall = false,
+              this.small = false,
+              this.medium = false,
+              this.large = false,
+              this.xlarge = true,
+            });
+
+            final bool xsmall;
+            final bool small;
+            final bool medium;
+            final bool large;
+            final bool xlarge;
+
+            bool withinAdaptiveConstraint(BuildContext context) {
+              AdaptiveWindowType currentEntry = getWindowType(context);
+
+              switch (currentEntry) {
+                case AdaptiveWindowType.xsmall:
+                  return xsmall;
+                case AdaptiveWindowType.small:
+                  return small;
+                case AdaptiveWindowType.medium:
+                  return medium;
+                case AdaptiveWindowType.large:
+                  return large;
+                case AdaptiveWindowType.xlarge:
+                  return xlarge;
+                default:
+                  throw AssertionError('Unsupported AdaptiveWindowType');
+              }
             }
           }
       - name: mkdir assets/images/albums
@@ -73187,34 +73819,28 @@ steps:
       - name: flutter doctor
         path: myartist
         flutter: doctor
-      - name: flutter pub run build_runner
-        path: myartist
-        flutter: pub run build_runner build
-      - name: Format generated file
-        path: myartist
-        dart: format ./lib/src/shared/playback/bloc/playback_bloc.freezed.dart
-      - name: Build iOS simulator bundle
-        platforms: [ macos ]
-        path: myartist
-        flutter: build ios --simulator
-      - name: Build macOS app
-        platforms: [ macos ]
-        path: myartist
-        flutter: build macos
-      - name: Build Linux app
-        platforms: [ linux ]
-        path: myartist
-        flutter: build linux
-      - name: Build Windows app
-        platforms: [ windows ]
-        path: myartist
-        flutter: build windows
       - name: dart run build_runner build --delete-conflicting-outputs
         path: myartist
         dart: run build_runner build --delete-conflicting-outputs
       - name: dart analyze
         path: myartist
         dart: analyze --fatal-infos
+      - name: Build iOS simulator bundle
+        platforms: [macos]
+        path: myartist
+        flutter: build ios --simulator
+      - name: Build macOS app
+        platforms: [macos]
+        path: myartist
+        flutter: build macos
+      - name: Build Linux app
+        platforms: [linux]
+        path: myartist
+        flutter: build linux
+      - name: Build Windows app
+        platforms: [windows]
+        path: myartist
+        flutter: build windows
       - name: Copy step_01
         copydir:
           from: myartist
@@ -73233,38 +73859,27 @@ steps:
           +++ a/boring_to_beautiful/step_02/lib/src/shared/router.dart
           @@ -20,19 +20,15 @@ final artistsProvider = ArtistsProvider();
            final playlistsProvider = PlaylistsProvider();
-           
+
            const List<NavigationDestination> destinations = [
           -  NavigationDestination(
           -    label: 'Home',
-          -    icon: Icon(Icons.arrow_right_rounded), // Modify this line
+          -    icon: Icon(Icons.arrow_right_rounded),
           -    route: '/',
           -  ),
           +  NavigationDestination(label: 'Home', icon: Icon(Icons.home), route: '/'),
              NavigationDestination(
                label: 'Playlists',
-          -    icon: Icon(Icons.arrow_right_rounded), // Modify this line
+          -    icon: Icon(Icons.arrow_right_rounded),
           +    icon: Icon(Icons.playlist_add_check),
                route: '/playlists',
              ),
              NavigationDestination(
                label: 'Artists',
-          -    icon: Icon(Icons.arrow_right_rounded), // Modify this line
+          -    icon: Icon(Icons.arrow_right_rounded),
           +    icon: Icon(Icons.people),
                route: '/artists',
              ),
            ];
-      - name: dart analyze
-        path: myartist
-        dart: analyze --fatal-infos
-      - name: Copy step_02
-        copydir:
-          from: myartist
-          to: step_02
-  - name: step_03
-    steps:
-      - name: Remove generated code.
-        rmdir: step_03
       - name: Add google_fonts
         path: myartist
         flutter: pub add google_fonts
@@ -73273,16 +73888,15 @@ steps:
         patch-u: |
           --- b/boring_to_beautiful/step_03/lib/src/shared/extensions.dart
           +++ a/boring_to_beautiful/step_03/lib/src/shared/extensions.dart
-          @@ -3,11 +3,11 @@
+          @@ -3,10 +3,11 @@
            // found in the LICENSE file.
-           
+
            import 'package:flutter/material.dart';
-          -// Add Google Fonts Package import
           +import 'package:google_fonts/google_fonts.dart';
-           
+
            extension TypographyUtils on BuildContext {
              ThemeData get theme => Theme.of(this);
-          -  TextTheme get textTheme => theme.textTheme; // Modify this line
+          -  TextTheme get textTheme => theme.textTheme;
           +  TextTheme get textTheme => GoogleFonts.montserratTextTheme(theme.textTheme);
              ColorScheme get colors => theme.colorScheme;
              TextStyle? get displayLarge =>
@@ -73290,90 +73904,81 @@ steps:
       - name: dart analyze
         path: myartist
         dart: analyze --fatal-infos
-      - name: Copy step_03
+      - name: Copy step_02
         copydir:
           from: myartist
-          to: step_03
-  - name: step_04
+          to: step_02
+      - name: Flutter clean
+        path: step_02
+        flutter: clean
+  - name: step_03
     steps:
       - name: Remove generated code.
-        rmdir: step_04
+        rmdir: step_03
       - name: Patch lib/src/shared/app.dart
         path: myartist/lib/src/shared/app.dart
         patch-u: |
           --- b/boring_to_beautiful/step_04/lib/src/shared/app.dart
           +++ a/boring_to_beautiful/step_04/lib/src/shared/app.dart
-          @@ -20,10 +20,7 @@ class MyApp extends StatefulWidget {
-           
-           class _MyAppState extends State<MyApp> {
-             final settings = ValueNotifier(
-          -    ThemeSettings(
-          -      sourceColor: Colors.pink, // Replace this color
-          -      themeMode: ThemeMode.system,
-          -    ),
-          +    ThemeSettings(sourceColor: Colors.pink, themeMode: ThemeMode.system),
-             );
-             @override
-             Widget build(BuildContext context) {
-          @@ -43,13 +40,13 @@ class _MyAppState extends State<MyApp> {
-                           child: ValueListenableBuilder<ThemeSettings>(
-                             valueListenable: settings,
-                             builder: (context, value, _) {
-          -                    // Create theme instance
-          +                    final theme = ThemeProvider.of(context);
-                               return MaterialApp.router(
-                                 debugShowCheckedModeBanner: false,
-                                 title: 'Flutter Demo',
-          -                      // Add theme
-          -                      // Add dark theme
-          -                      // Add theme mode
-          +                      theme: theme.light(settings.value.sourceColor),
-          +                      darkTheme: theme.dark(settings.value.sourceColor),
-          +                      themeMode: theme.themeMode(),
-                                 routeInformationParser: appRouter.routeInformationParser,
-                                 routeInformationProvider:
-                                     appRouter.routeInformationProvider,
+          @@ -39,9 +39,13 @@ class _MyAppState extends State<MyApp> {
+                       child: ValueListenableBuilder<ThemeSettings>(
+                         valueListenable: settings,
+                         builder: (context, value, _) {
+          +                final theme = ThemeProvider.of(context);
+                           return MaterialApp.router(
+                             debugShowCheckedModeBanner: false,
+                             title: 'Flutter Demo',
+          +                  theme: theme.light(settings.value.sourceColor),
+          +                  darkTheme: theme.dark(settings.value.sourceColor),
+          +                  themeMode: theme.themeMode(),
+                             routeInformationParser: appRouter.routeInformationParser,
+                             routeInformationProvider: appRouter.routeInformationProvider,
+                             routerDelegate: appRouter.routerDelegate,
       - name: Patch lib/src/shared/views/outlined_card.dart
         path: myartist/lib/src/shared/views/outlined_card.dart
         patch-u: |
           --- b/boring_to_beautiful/step_04/lib/src/shared/views/outlined_card.dart
           +++ a/boring_to_beautiful/step_04/lib/src/shared/views/outlined_card.dart
-          @@ -23,7 +23,12 @@ class _OutlinedCardState extends State<OutlinedCard> {
-                         ? SystemMouseCursors.click
-                         : SystemMouseCursors.basic,
-                 child: Container(
-          -        // Add box decoration here
+          @@ -21,7 +21,15 @@ class _OutlinedCardState extends State<OutlinedCard> {
+                 cursor: widget.clickable
+                     ? SystemMouseCursors.click
+                     : SystemMouseCursors.basic,
+          -      child: Container(child: widget.child),
+          +      child: Container(
           +        decoration: BoxDecoration(
           +          border: Border.all(
           +            color: Theme.of(context).colorScheme.outline,
           +            width: 1,
           +          ),
           +        ),
-                   child: widget.child,
-                 ),
+          +        child: widget.child,
+          +      ),
                );
+             }
+           }
       - name: dart analyze
         path: myartist
         dart: analyze --fatal-infos
-      - name: Copy step_04
+      - name: Copy step_03
         copydir:
           from: myartist
-          to: step_04
-  - name: step_05
+          to: step_03
+      - name: Flutter clean
+        path: step_03
+        flutter: clean
+  - name: step_04
     steps:
       - name: Remove generated code.
-        rmdir: step_05
+        rmdir: step_04
       - name: Patch lib/src/features/home/view/home_screen.dart
         path: myartist/lib/src/features/home/view/home_screen.dart
         patch-u: |
           --- b/boring_to_beautiful/step_05/lib/src/features/home/view/home_screen.dart
           +++ a/boring_to_beautiful/step_05/lib/src/features/home/view/home_screen.dart
-          @@ -30,8 +30,54 @@ class _HomeScreenState extends State<HomeScreen> {
+          @@ -30,6 +30,50 @@ class _HomeScreenState extends State<HomeScreen> {
                final List<Artist> artists = artistsProvider.artists;
                return LayoutBuilder(
                  builder: (context, constraints) {
-          -        // Add conditional mobile layout
-          -
           +        if (constraints.isMobile) {
           +          return DefaultTabController(
           +            length: 4,
@@ -73393,31 +73998,27 @@ steps:
           +                ),
           +              ),
           +              body: LayoutBuilder(
-          +                builder:
-          +                    (context, constraints) => TabBarView(
-          +                      children: [
-          +                        SingleChildScrollView(
-          +                          child: Column(
-          +                            children: [
-          +                              const HomeHighlight(),
-          +                              HomeArtists(
-          +                                artists: artists,
-          +                                constraints: constraints,
-          +                              ),
-          +                            ],
+          +                builder: (context, constraints) => TabBarView(
+          +                  children: [
+          +                    SingleChildScrollView(
+          +                      child: Column(
+          +                        children: [
+          +                          const HomeHighlight(),
+          +                          HomeArtists(
+          +                            artists: artists,
+          +                            constraints: constraints,
           +                          ),
-          +                        ),
-          +                        HomeRecent(playlists: playlists, axis: Axis.vertical),
-          +                        PlaylistSongs(
-          +                          playlist: topSongs,
-          +                          constraints: constraints,
-          +                        ),
-          +                        PlaylistSongs(
-          +                          playlist: newReleases,
-          +                          constraints: constraints,
-          +                        ),
-          +                      ],
+          +                        ],
+          +                      ),
           +                    ),
+          +                    HomeRecent(playlists: playlists, axis: Axis.vertical),
+          +                    PlaylistSongs(playlist: topSongs, constraints: constraints),
+          +                    PlaylistSongs(
+          +                      playlist: newReleases,
+          +                      constraints: constraints,
+          +                    ),
+          +                  ],
+          +                ),
           +              ),
           +            ),
           +          );
@@ -73430,11 +74031,10 @@ steps:
         patch-u: |
           --- b/boring_to_beautiful/step_05/lib/src/shared/views/adaptive_navigation.dart
           +++ a/boring_to_beautiful/step_05/lib/src/shared/views/adaptive_navigation.dart
-          @@ -23,32 +23,39 @@ class AdaptiveNavigation extends StatelessWidget {
+          @@ -22,25 +22,36 @@ class AdaptiveNavigation extends StatelessWidget {
+             Widget build(BuildContext context) {
                return LayoutBuilder(
                  builder: (context, dimens) {
-                   // Tablet Layout
-          -        // Add maxWidth constraint check
           +        if (dimens.maxWidth >= 600) {
           +          return Scaffold(
           +            body: Row(
@@ -73442,15 +74042,14 @@ steps:
           +                NavigationRail(
           +                  extended: dimens.maxWidth >= 800,
           +                  minExtendedWidth: 180,
-          +                  destinations:
-          +                      destinations
-          +                          .map(
-          +                            (e) => NavigationRailDestination(
-          +                              icon: e.icon,
-          +                              label: Text(e.label),
-          +                            ),
-          +                          )
-          +                          .toList(),
+          +                  destinations: destinations
+          +                      .map(
+          +                        (e) => NavigationRailDestination(
+          +                          icon: e.icon,
+          +                          label: Text(e.label),
+          +                        ),
+          +                      )
+          +                      .toList(),
           +                  selectedIndex: selectedIndex,
           +                  onDestinationSelected: onDestinationSelected,
           +                ),
@@ -73466,15 +74065,14 @@ steps:
           -              NavigationRail(
           -                extended: dimens.maxWidth >= 800,
           -                minExtendedWidth: 180,
-          -                destinations:
-          -                    destinations
-          -                        .map(
-          -                          (e) => NavigationRailDestination(
-          -                            icon: e.icon,
-          -                            label: Text(e.label),
-          -                          ),
-          -                        )
-          -                        .toList(),
+          -                destinations: destinations
+          -                    .map(
+          -                      (e) => NavigationRailDestination(
+          -                        icon: e.icon,
+          -                        label: Text(e.label),
+          -                      ),
+          -                    )
+          -                    .toList(),
           -                selectedIndex: selectedIndex,
           -                onDestinationSelected: onDestinationSelected,
           -              ),
@@ -73487,23 +74085,71 @@ steps:
           +            onDestinationSelected: onDestinationSelected,
                      ),
                    );
-          -        // Add closing curly bracket
-          -
-          -        // Add return for mobile layout
                  },
-               );
-             }
       - name: dart analyze
         path: myartist
         dart: analyze --fatal-infos
-      - name: Copy step_05
+      - name: Copy step_04
         copydir:
           from: myartist
-          to: step_05
-  - name: step_06
+          to: step_04
+      - name: Flutter clean
+        path: step_04
+        flutter: clean
+  - name: step_05_a
     steps:
       - name: Remove generated code.
-        rmdir: step_06
+        rmdir: step_05_a
+      - name: Patch lib/src/features/home/view/home_screen.dart
+        path: myartist/lib/src/features/home/view/home_screen.dart
+        patch-u: |
+          --- b/boring_to_beautiful/step_05_a/lib/src/features/home/view/home_screen.dart
+          +++ a/boring_to_beautiful/step_05_a/lib/src/features/home/view/home_screen.dart
+          @@ -81,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
+                           AdaptiveContainer(
+                             columnSpan: 12,
+                             child: Padding(
+          -                    padding: const EdgeInsets.all(2),
+          +                    padding: const EdgeInsets.all(35),
+                               child: Row(
+                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                 children: [
+          @@ -117,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 Padding(
+          -                        padding: const EdgeInsets.all(2),
+          +                        padding: const EdgeInsets.all(35),
+                                   child: Text(
+                                     'Recently played',
+                                     style: context.headlineSmall,
+          @@ -130,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
+                           AdaptiveContainer(
+                             columnSpan: 12,
+                             child: Padding(
+          -                    padding: const EdgeInsets.all(2),
+          +                    padding: const EdgeInsets.all(35),
+                               child: Row(
+                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                 children: [
+          @@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
+                                       crossAxisAlignment: CrossAxisAlignment.start,
+                                       children: [
+                                         Padding(
+          -                                padding: const EdgeInsets.all(2),
+          +                                padding: const EdgeInsets.all(35),
+                                           child: Text(
+                                             'Top Songs Today',
+                                             style: context.titleLarge,
+          @@ -164,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
+                                       crossAxisAlignment: CrossAxisAlignment.start,
+                                       children: [
+                                         Padding(
+          -                                padding: const EdgeInsets.all(2),
+          +                                padding: const EdgeInsets.all(35),
+                                           child: Text(
+                                             'New Releases',
+                                             style: context.titleLarge,
       - name: Patch lib/src/features/home/view/home_highlight.dart
         path: myartist/lib/src/features/home/view/home_highlight.dart
         patch-u: |
@@ -73513,30 +74159,71 @@ steps:
                  children: [
                    Expanded(
                      child: Padding(
-          -            padding: const EdgeInsets.all(2), // Modify this line
+          -            padding: const EdgeInsets.all(2),
           +            padding: const EdgeInsets.all(15),
                        child: Clickable(
                          child: SizedBox(
                            height: 275,
+      - name: dart analyze
+        path: myartist
+        dart: analyze --fatal-infos
+      - name: Copy step_05_a
+        copydir:
+          from: myartist
+          to: step_05_a
+      - name: Flutter clean
+        path: step_05_a
+        flutter: clean
+  - name: step_05_b
+    steps:
+      - name: Remove generated code.
+        rmdir: step_05_b
       - name: Patch lib/src/features/home/view/home_screen.dart
         path: myartist/lib/src/features/home/view/home_screen.dart
         patch-u: |
-          --- b/boring_to_beautiful/step_06/lib/src/features/home/view/home_screen.dart
-          +++ a/boring_to_beautiful/step_06/lib/src/features/home/view/home_screen.dart
-          @@ -85,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
+          --- b/boring_to_beautiful/step_05_b/lib/src/features/home/view/home_screen.dart
+          +++ a/boring_to_beautiful/step_05_b/lib/src/features/home/view/home_screen.dart
+          @@ -157,6 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
+                                       ],
+                                     ),
+                                   ),
+          +                        const SizedBox(width: 35),
+                                   Flexible(
+                                     flex: 10,
+                                     child: Column(
+      - name: dart analyze
+        path: myartist
+        dart: analyze --fatal-infos
+      - name: Copy step_05_b
+        copydir:
+          from: myartist
+          to: step_05_b
+      - name: Flutter clean
+        path: step_05_b
+        flutter: clean
+  - name: step_05_c
+    steps:
+      - name: Remove generated code.
+        rmdir: step_05_c
+      - name: Patch lib/src/features/home/view/home_screen.dart
+        path: myartist/lib/src/features/home/view/home_screen.dart
+        patch-u: |
+          --- b/boring_to_beautiful/step_05_c/lib/src/features/home/view/home_screen.dart
+          +++ a/boring_to_beautiful/step_05_c/lib/src/features/home/view/home_screen.dart
+          @@ -81,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
                            AdaptiveContainer(
                              columnSpan: 12,
                              child: Padding(
-          -                    padding: const EdgeInsets.all(2), // Modify this line
+          -                    padding: const EdgeInsets.all(35),
           +                    padding: const EdgeInsets.fromLTRB(20, 25, 20, 10),
                                child: Row(
                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                  children: [
-          @@ -122,7 +122,10 @@ class _HomeScreenState extends State<HomeScreen> {
+          @@ -117,7 +117,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                crossAxisAlignment: CrossAxisAlignment.start,
                                children: [
                                  Padding(
-          -                        padding: const EdgeInsets.all(2), // Modify this line
+          -                        padding: const EdgeInsets.all(35),
           +                        padding: const EdgeInsets.symmetric(
           +                          horizontal: 15,
           +                          vertical: 10,
@@ -73544,22 +74231,20 @@ steps:
                                    child: Text(
                                      'Recently played',
                                      style: context.headlineSmall,
-          @@ -135,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
+          @@ -130,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                            AdaptiveContainer(
                              columnSpan: 12,
                              child: Padding(
-          -                    padding: const EdgeInsets.all(2), // Modify this line
+          -                    padding: const EdgeInsets.all(35),
           +                    padding: const EdgeInsets.all(15),
                                child: Row(
                                  crossAxisAlignment: CrossAxisAlignment.start,
                                  children: [
-          @@ -146,9 +149,10 @@ class _HomeScreenState extends State<HomeScreen> {
+          @@ -141,7 +144,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                        crossAxisAlignment: CrossAxisAlignment.start,
                                        children: [
                                          Padding(
-          -                                padding: const EdgeInsets.all(
-          -                                  2,
-          -                                ), // Modify this line
+          -                                padding: const EdgeInsets.all(35),
           +                                padding: const EdgeInsets.only(
           +                                  left: 8,
           +                                  bottom: 8,
@@ -73567,22 +74252,20 @@ steps:
                                            child: Text(
                                              'Top Songs Today',
                                              style: context.titleLarge,
-          @@ -164,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
+          @@ -157,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                        ],
                                      ),
                                    ),
-          -                        // Add spacer between tables
+          -                        const SizedBox(width: 35),
           +                        const SizedBox(width: 25),
                                    Flexible(
                                      flex: 10,
                                      child: Column(
-          @@ -172,9 +176,10 @@ class _HomeScreenState extends State<HomeScreen> {
+          @@ -165,7 +171,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                        crossAxisAlignment: CrossAxisAlignment.start,
                                        children: [
                                          Padding(
-          -                                padding: const EdgeInsets.all(
-          -                                  2,
-          -                                ), // Modify this line
+          -                                padding: const EdgeInsets.all(35),
           +                                padding: const EdgeInsets.only(
           +                                  left: 8,
           +                                  bottom: 8,
@@ -73590,6 +74273,55 @@ steps:
                                            child: Text(
                                              'New Releases',
                                              style: context.titleLarge,
+      - name: Patch lib/src/features/home/view/home_highlight.dart
+        path: myartist/lib/src/features/home/view/home_highlight.dart
+        patch-u: |
+          --- b/boring_to_beautiful/step_05_c/lib/src/features/home/view/home_highlight.dart
+          +++ a/boring_to_beautiful/step_05_c/lib/src/features/home/view/home_highlight.dart
+          @@ -16,7 +16,7 @@ class HomeHighlight extends StatelessWidget {
+                 children: [
+                   Expanded(
+                     child: Padding(
+          -            padding: const EdgeInsets.all(15),
+          +            padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 5),
+                       child: Clickable(
+                         child: SizedBox(
+                           height: 275,
+      - name: dart analyze
+        path: myartist
+        dart: analyze --fatal-infos
+      - name: Copy step_05_c
+        copydir:
+          from: myartist
+          to: step_05_c
+      - name: Flutter clean
+        path: step_05_c
+        flutter: clean
+  - name: step_06
+    steps:
+      - name: Remove generated code.
+        rmdir: step_06
+      - name: Patch lib/src/shared/providers/theme.dart
+        path: myartist/lib/src/shared/providers/theme.dart
+        patch-u: |
+          --- b/boring_to_beautiful/step_07/lib/src/shared/providers/theme.dart
+          +++ a/boring_to_beautiful/step_07/lib/src/shared/providers/theme.dart
+          @@ -147,6 +147,7 @@ class ThemeProvider extends InheritedWidget {
+             ThemeData light([Color? targetColor]) {
+               final colorScheme = colors(Brightness.light, targetColor);
+               return ThemeData.light().copyWith(
+          +      pageTransitionsTheme: pageTransitionsTheme,
+                 colorScheme: colorScheme,
+                 appBarTheme: appBarTheme(colorScheme),
+                 cardTheme: cardTheme(),
+          @@ -163,6 +164,7 @@ class ThemeProvider extends InheritedWidget {
+             ThemeData dark([Color? targetColor]) {
+               final colorScheme = colors(Brightness.dark, targetColor);
+               return ThemeData.dark().copyWith(
+          +      pageTransitionsTheme: pageTransitionsTheme,
+                 colorScheme: colorScheme,
+                 appBarTheme: appBarTheme(colorScheme),
+                 cardTheme: cardTheme(),
       - name: dart analyze
         path: myartist
         dart: analyze --fatal-infos
@@ -73597,77 +74329,44 @@ steps:
         copydir:
           from: myartist
           to: step_06
+      - name: Flutter clean
+        path: step_06
+        flutter: clean
   - name: step_07
     steps:
       - name: Remove generated code.
         rmdir: step_07
-      - name: Patch lib/src/shared/providers/theme.dart
-        path: myartist/lib/src/shared/providers/theme.dart
-        patch-u: |
-          --- b/boring_to_beautiful/step_07/lib/src/shared/providers/theme.dart
-          +++ a/boring_to_beautiful/step_07/lib/src/shared/providers/theme.dart
-          @@ -146,7 +146,7 @@ class ThemeProvider extends InheritedWidget {
-             ThemeData light([Color? targetColor]) {
-               final colorScheme = colors(Brightness.light, targetColor);
-               return ThemeData.light().copyWith(
-          -      // Add page transitions
-          +      pageTransitionsTheme: pageTransitionsTheme,
-                 colorScheme: colorScheme,
-                 appBarTheme: appBarTheme(colorScheme),
-                 cardTheme: cardTheme(),
-          @@ -163,7 +163,7 @@ class ThemeProvider extends InheritedWidget {
-             ThemeData dark([Color? targetColor]) {
-               final colorScheme = colors(Brightness.dark, targetColor);
-               return ThemeData.dark().copyWith(
-          -      // Add page transitions
-          +      pageTransitionsTheme: pageTransitionsTheme,
-                 colorScheme: colorScheme,
-                 appBarTheme: appBarTheme(colorScheme),
-                 cardTheme: cardTheme(),
-      - name: dart analyze
-        path: myartist
-        dart: analyze --fatal-infos
-      - name: Copy step_07
-        copydir:
-          from: myartist
-          to: step_07
-  - name: final
-    steps:
-      - name: Remove generated code.
-        rmdir: final
       - name: Patch lib/src/features/playlists/view/playlist_songs.dart
         path: myartist/lib/src/features/playlists/view/playlist_songs.dart
         patch-u: |
           --- b/boring_to_beautiful/final/lib/src/features/playlists/view/playlist_songs.dart
           +++ a/boring_to_beautiful/final/lib/src/features/playlists/view/playlist_songs.dart
-          @@ -43,11 +43,14 @@ class PlaylistSongs extends StatelessWidget {
-                       index: index,
-                       cells: [
-                         DataCell(
-          -                // Add HoverableSongPlayButton
-          -                Center(
-          -                  child: Text(
-          -                    (index + 1).toString(),
-          -                    textAlign: TextAlign.center,
-          +                HoverableSongPlayButton(
-          +                  hoverMode: HoverMode.overlay,
-          +                  song: playlist.songs[index],
-          +                  child: Center(
-          +                    child: Text(
-          +                      (index + 1).toString(),
-          +                      textAlign: TextAlign.center,
-          +                    ),
-                             ),
-                           ),
-                         ),
+          @@ -42,8 +42,15 @@ class PlaylistSongs extends StatelessWidget {
+                   index: index,
+                   cells: [
+                     DataCell(
+          -            Center(
+          -              child: Text((index + 1).toString(), textAlign: TextAlign.center),
+          +            HoverableSongPlayButton(
+          +              hoverMode: HoverMode.overlay,
+          +              song: playlist.songs[index],
+          +              child: Center(
+          +                child: Text(
+          +                  (index + 1).toString(),
+          +                  textAlign: TextAlign.center,
+          +                ),
+          +              ),
+                       ),
+                     ),
+                     DataCell(
       - name: Patch lib/src/shared/views/outlined_card.dart
         path: myartist/lib/src/shared/views/outlined_card.dart
         patch-u: |
           --- b/boring_to_beautiful/final/lib/src/shared/views/outlined_card.dart
           +++ a/boring_to_beautiful/final/lib/src/shared/views/outlined_card.dart
-          @@ -15,21 +15,57 @@ class OutlinedCard extends StatefulWidget {
+          @@ -15,20 +15,55 @@ class OutlinedCard extends StatefulWidget {
            }
-           
+
            class _OutlinedCardState extends State<OutlinedCard> {
           +  bool _hovered = false;
           +
@@ -73688,10 +74387,9 @@ steps:
           +          _hovered = false;
           +        });
           +      },
-                 cursor:
-                     widget.clickable
-                         ? SystemMouseCursors.click
-                         : SystemMouseCursors.basic,
+                 cursor: widget.clickable
+                     ? SystemMouseCursors.click
+                     : SystemMouseCursors.basic,
           -      child: Container(
           +      child: AnimatedContainer(
           +        duration: kThemeAnimationDuration,
@@ -73713,12 +74411,11 @@ steps:
           +          duration: kThemeAnimationDuration,
           +          curve: animationCurve,
           +          tween: Tween(begin: BorderRadius.zero, end: borderRadius),
-          +          builder:
-          +              (context, borderRadius, child) => ClipRRect(
-          +                clipBehavior: Clip.antiAlias,
-          +                borderRadius: borderRadius,
-          +                child: child,
-          +              ),
+          +          builder: (context, borderRadius, child) => ClipRRect(
+          +            clipBehavior: Clip.antiAlias,
+          +            borderRadius: borderRadius,
+          +            child: child,
+          +          ),
           +          child: widget.child,
                    ),
           -        child: widget.child,
@@ -73729,34 +74426,34 @@ steps:
         path: myartist
         dart: analyze --fatal-infos
       - name: Build Android app
-        platforms: [ macos ]
+        platforms: [macos]
         path: myartist
         flutter: build apk
       - name: Build iOS app
-        platforms: [ macos ]
+        platforms: [macos]
         path: myartist
         flutter: build ios --simulator
       - name: Build macOS app
-        platforms: [ macos ]
+        platforms: [macos]
         path: myartist
         flutter: build macos
       - name: Build Linux app
-        platforms: [ linux ]
+        platforms: [linux]
         path: myartist
         flutter: build linux
       - name: Build Windows app
-        platforms: [ windows ]
+        platforms: [windows]
         path: myartist
         flutter: build windows
       - name: Build Web app
         path: myartist
         flutter: build web
-      - name: Copy final
+      - name: Copy step_07
         copydir:
           from: myartist
-          to: final
+          to: step_07
       - name: Flutter clean
-        path: final
+        path: step_07
         flutter: clean
   - name: Cleanup
     rmdir: myartist

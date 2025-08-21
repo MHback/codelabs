@@ -60,8 +60,10 @@ class ThemeProvider extends InheritedWidget {
 
   Color blend(Color targetColor) {
     return Color(
-      // ignore: deprecated_member_use
-      Blend.harmonize(targetColor.value, settings.value.sourceColor.value),
+      Blend.harmonize(
+        targetColor.toARGB32(),
+        settings.value.sourceColor.toARGB32(),
+      ),
     );
   }
 
@@ -74,10 +76,9 @@ class ThemeProvider extends InheritedWidget {
   }
 
   ColorScheme colors(Brightness brightness, Color? targetColor) {
-    final dynamicPrimary =
-        brightness == Brightness.light
-            ? lightDynamic?.primary
-            : darkDynamic?.primary;
+    final dynamicPrimary = brightness == Brightness.light
+        ? lightDynamic?.primary
+        : darkDynamic?.primary;
     return ColorScheme.fromSeed(
       seedColor: dynamicPrimary ?? source(targetColor),
       brightness: brightness,
@@ -87,8 +88,8 @@ class ThemeProvider extends InheritedWidget {
   ShapeBorder get shapeMedium =>
       RoundedRectangleBorder(borderRadius: BorderRadius.circular(8));
 
-  CardTheme cardTheme() {
-    return CardTheme(
+  CardThemeData cardTheme() {
+    return CardThemeData(
       elevation: 0,
       shape: shapeMedium,
       clipBehavior: Clip.antiAlias,
@@ -110,8 +111,8 @@ class ThemeProvider extends InheritedWidget {
     );
   }
 
-  TabBarTheme tabBarTheme(ColorScheme colors) {
-    return TabBarTheme(
+  TabBarThemeData tabBarTheme(ColorScheme colors) {
+    return TabBarThemeData(
       labelColor: colors.secondary,
       unselectedLabelColor: colors.onSurfaceVariant,
       indicator: BoxDecoration(
@@ -120,8 +121,8 @@ class ThemeProvider extends InheritedWidget {
     );
   }
 
-  BottomAppBarTheme bottomAppBarTheme(ColorScheme colors) {
-    return BottomAppBarTheme(color: colors.surface, elevation: 0);
+  BottomAppBarThemeData bottomAppBarTheme(ColorScheme colors) {
+    return BottomAppBarThemeData(color: colors.surface, elevation: 0);
   }
 
   BottomNavigationBarThemeData bottomNavigationBarTheme(ColorScheme colors) {
@@ -209,7 +210,6 @@ Color randomColor() {
   return Color(Random().nextInt(0xFFFFFFFF));
 }
 
-// Custom Colors
 const linkColor = CustomColor(name: 'Link Color', color: Color(0xFF00B0FF));
 
 class CustomColor {

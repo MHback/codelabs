@@ -26,9 +26,24 @@ steps:
           +GoogleService-Info.plist
           +google-services.json
           +ios/firebase_app_id_file.json
+      - name: Add .gemini directory
+        mkdir: steps/app/.gemini
+      - name: Add .gemini/settings.json
+        path: steps/app/.gemini/settings.json
+        replace-contents: |
+          {
+              "mcpServers": {
+                  "dart": {
+                      "command": "dart",
+                      "args": [
+                          "mcp-server"
+                      ]
+                  }
+              }
+          }
       - name: Add app dependencies
         path: steps/app
-        flutter: pub add cloud_firestore cupertino_icons firebase_auth firebase_core google_sign_in http intl provider
+        flutter: pub add cloud_firestore cupertino_icons firebase_auth firebase_core google_sign_in http intl provider logging
       - name: Patch app/pubspec.yaml
         path: steps/app/pubspec.yaml
         patch-u: |
@@ -41,7 +56,7 @@ steps:
            publish_to: 'none'
            version: 0.1.0
            
-          @@ -25,3 +25,6 @@ dev_dependencies:
+          @@ -26,3 +26,6 @@ dev_dependencies:
            
            flutter:
              uses-material-design: true
@@ -76,19 +91,6 @@ steps:
           +	</array>
            </dict>
            </plist>
-      - name: Patch app/ios/Podfile
-        path: steps/app/ios/Podfile
-        patch-u: |
-          --- b/in_app_purchases/step_00/app/ios/Podfile
-          +++ a/in_app_purchases/step_00/app/ios/Podfile
-          @@ -1,5 +1,5 @@
-          -# Uncomment this line to define a global platform for your project
-          -# platform :ios, '12.0'
-          +# Per https://firebase.google.com/support/release-notes/ios cloud_firestore requires a minimum iOS version of 13.0
-          +platform :ios, '13.0'
-           
-           # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
-           ENV['COCOAPODS_DISABLE_STATS'] = 'true'
       - name: Patch app/android/app/build.gradle.kts
         path: steps/app/android/app/build.gradle.kts
         patch-u: |
@@ -15881,11 +15883,10 @@ steps:
                   ),
                   ChangeNotifierProvider<DashCounter>(create: (_) => DashCounter()),
                   ChangeNotifierProvider<DashUpgrades>(
-                    create:
-                        (context) => DashUpgrades(
-                          context.read<DashCounter>(),
-                          context.read<FirebaseNotifier>(),
-                        ),
+                    create: (context) => DashUpgrades(
+                      context.read<DashCounter>(),
+                      context.read<FirebaseNotifier>(),
+                    ),
                   ),
                   ChangeNotifierProvider<IAPRepo>(
                     create: (context) => IAPRepo(context.read<FirebaseNotifier>()),
@@ -16125,17 +16126,29 @@ steps:
           import 'package:flutter/cupertino.dart';
           import 'package:flutter/foundation.dart';
           import 'package:google_sign_in/google_sign_in.dart';
+          import 'package:logging/logging.dart';
 
           import '../firebase_options.dart';
           import '../model/firebase_state.dart';
+
+          final _log = Logger('FirebaseNotifier');
 
           class FirebaseNotifier extends ChangeNotifier {
             bool loggedIn = false;
             FirebaseState state = FirebaseState.loading;
             bool isLoggingIn = false;
+            late final GoogleSignIn _googleSignIn;
+            StreamSubscription<User?>? _authSubscription;
 
             FirebaseNotifier() {
+              _googleSignIn = GoogleSignIn.instance;
               load();
+            }
+
+            @override
+            void dispose() {
+              _authSubscription?.cancel();
+              super.dispose();
             }
 
             late final Completer<bool> _isInitialized = Completer();
@@ -16149,15 +16162,42 @@ steps:
             }
 
             Future<void> load() async {
+              _log.info('Starting Firebase initialization');
               try {
+                _log.fine('Initializing Firebase app');
                 await Firebase.initializeApp(
                   options: DefaultFirebaseOptions.currentPlatform,
                 );
+
+                _log.fine('Initializing Google Sign-In');
+                await _googleSignIn.initialize();
+
+                // Set up auth state listener before attempting authentication
+                _log.fine('Setting up auth state listener');
+                _authSubscription = FirebaseAuth.instance.authStateChanges().listen((
+                  user,
+                ) {
+                  _log.fine(
+                    'Auth state changed: user is ${user != null ? 'logged in' : 'logged out'}',
+                  );
+                  loggedIn = user != null;
+                  notifyListeners();
+                });
+
+                // Check if user is already authenticated
+                _log.fine('Attempting lightweight authentication');
+                final lightweightAuth = _googleSignIn.attemptLightweightAuthentication();
+                if (lightweightAuth is Future) {
+                  await lightweightAuth;
+                }
+
                 loggedIn = FirebaseAuth.instance.currentUser != null;
                 state = FirebaseState.available;
                 _isInitialized.complete(true);
+                _log.info('Firebase initialization completed successfully');
                 notifyListeners();
               } catch (e) {
+                _log.severe('Firebase initialization failed', e);
                 state = FirebaseState.notAvailable;
                 _isInitialized.complete(false);
                 notifyListeners();
@@ -16165,36 +16205,48 @@ steps:
             }
 
             Future<void> login() async {
+              _log.info('Starting login process');
               isLoggingIn = true;
               notifyListeners();
-              // Trigger the authentication flow
+
               try {
-                final googleUser = await GoogleSignIn().signIn();
-                if (googleUser == null) {
+                _log.fine('Authenticating with Google Sign-In');
+                await _googleSignIn.authenticate();
+
+                _log.fine('Requesting server authorization');
+                final serverAuth = await _googleSignIn.authorizationClient
+                    .authorizeServer(['email', 'profile']);
+
+                if (serverAuth == null) {
+                  _log.warning('Server authorization returned null');
                   isLoggingIn = false;
                   notifyListeners();
                   return;
                 }
 
-                // Obtain the auth details from the request
-                final googleAuth = await googleUser.authentication;
-
-                // Create a new credential
+                _log.fine('Creating Firebase credential');
                 final credential = GoogleAuthProvider.credential(
-                  accessToken: googleAuth.accessToken,
-                  idToken: googleAuth.idToken,
+                  idToken: serverAuth.serverAuthCode,
                 );
 
-                // Once signed in, return the UserCredential
+                _log.fine('Signing in to Firebase');
                 await FirebaseAuth.instance.signInWithCredential(credential);
 
-                loggedIn = true;
-                isLoggingIn = false;
-                notifyListeners();
-              } catch (e) {
-                isLoggingIn = false;
-                notifyListeners();
+                _log.info('Login completed successfully');
+              } on GoogleSignInException catch (e) {
+                _log.info('Google Sign-In exception: ${e.code}');
+                if (e.code == GoogleSignInExceptionCode.canceled) {
+                  _log.fine('User canceled sign-in');
+                } else {
+                  _log.warning('Google Sign-In failed', e);
+                }
                 return;
+              } catch (e) {
+                _log.severe('Login failed with unexpected error', e);
+                return;
+              } finally {
+                isLoggingIn = false;
+                notifyListeners();
               }
             }
           }
@@ -16401,10 +16453,9 @@ steps:
                   leading: Center(widthFactor: 1, child: Text(upgrade.count.toString())),
                   title: Text(
                     title,
-                    style:
-                        !upgrade.purchasable
-                            ? const TextStyle(color: Colors.redAccent)
-                            : null,
+                    style: !upgrade.purchasable
+                        ? const TextStyle(color: Colors.redAccent)
+                        : null,
                   ),
                   subtitle: Text('Produces ${upgrade.work} dashes per second'),
                   trailing: Text('${NumberFormat.compact().format(upgrade.cost)} dashes'),
@@ -16504,17 +16555,16 @@ steps:
               var purchases = context.watch<DashPurchases>();
               var products = purchases.products;
               return Column(
-                children:
-                    products
-                        .map(
-                          (product) => _PurchaseWidget(
-                            product: product,
-                            onPressed: () {
-                              purchases.buy(product);
-                            },
-                          ),
-                        )
-                        .toList(),
+                children: products
+                    .map(
+                      (product) => _PurchaseWidget(
+                        product: product,
+                        onPressed: () {
+                          purchases.buy(product);
+                        },
+                      ),
+                    )
+                    .toList(),
               );
             }
           }
@@ -16559,11 +16609,10 @@ steps:
               return ListView.separated(
                 shrinkWrap: true,
                 itemCount: purchases.length,
-                itemBuilder:
-                    (context, index) => ListTile(
-                      title: Text(purchases[index].title),
-                      subtitle: Text(purchases[index].status.toString()),
-                    ),
+                itemBuilder: (context, index) => ListTile(
+                  title: Text(purchases[index].title),
+                  subtitle: Text(purchases[index].status.toString()),
+                ),
                 separatorBuilder: (context, index) => const Divider(),
               );
             }
@@ -16622,17 +16671,15 @@ steps:
                 hasUpgrade = false;
                 return;
               }
-              var purchaseStream =
-                  _firestore
-                      .collection('purchases')
-                      .where('userId', isEqualTo: user.uid)
-                      .snapshots();
+              var purchaseStream = _firestore
+                  .collection('purchases')
+                  .where('userId', isEqualTo: user.uid)
+                  .snapshots();
               _purchaseSubscription = purchaseStream.listen((snapshot) {
-                purchases =
-                    snapshot.docs.map((document) {
-                      var data = document.data();
-                      return PastPurchase.fromJson(data);
-                    }).toList();
+                purchases = snapshot.docs.map((document) {
+                  var data = document.data();
+                  return PastPurchase.fromJson(data);
+                }).toList();
 
                 hasActiveSubscription = purchases.any(
                   (element) =>
@@ -16676,6 +16723,21 @@ steps:
         renamedir:
           from: steps/firebase_backend_dart
           to: steps/dart-backend
+      - name: Add .gemini directory
+        mkdir: steps/dart-backend/.gemini
+      - name: Add .gemini/settings.json
+        path: steps/dart-backend/.gemini/settings.json
+        replace-contents: |
+          {
+              "mcpServers": {
+                  "dart": {
+                      "command": "dart",
+                      "args": [
+                          "mcp-server"
+                      ]
+                  }
+              }
+          }
       - name: Add dependencies
         path: steps/dart-backend
         dart: pub add googleapis googleapis_auth http app_store_server_sdk
@@ -16916,10 +16978,9 @@ steps:
               switch (type) {
                 case ProductType.subscription:
                   return SubscriptionPurchase(
-                    iapSource:
-                        e.fields!['iapSource']!.stringValue == 'googleplay'
-                            ? IAPSource.googleplay
-                            : IAPSource.appstore,
+                    iapSource: e.fields!['iapSource']!.stringValue == 'googleplay'
+                        ? IAPSource.googleplay
+                        : IAPSource.appstore,
                     orderId: e.fields!['orderId']!.stringValue!,
                     productId: e.fields!['productId']!.stringValue!,
                     userId: e.fields!['userId']!.stringValue,
@@ -16937,10 +16998,9 @@ steps:
                   );
                 case ProductType.nonSubscription:
                   return NonSubscriptionPurchase(
-                    iapSource:
-                        e.fields!['iapSource']!.stringValue == 'googleplay'
-                            ? IAPSource.googleplay
-                            : IAPSource.appstore,
+                    iapSource: e.fields!['iapSource']!.stringValue == 'googleplay'
+                        ? IAPSource.googleplay
+                        : IAPSource.appstore,
                     orderId: e.fields!['orderId']!.stringValue!,
                     productId: e.fields!['productId']!.stringValue!,
                     userId: e.fields!['userId']!.stringValue,
@@ -17180,7 +17240,7 @@ steps:
            void main() {
              runApp(const MyApp());
            }
-          @@ -66,6 +80,7 @@ class _MyHomePageState extends State<MyHomePage> {
+          @@ -65,6 +79,7 @@ class _MyHomePageState extends State<MyHomePage> {
                    ),
                    ChangeNotifierProvider<DashPurchases>(
                      create: (context) => DashPurchases(context.read<DashCounter>()),
@@ -17374,7 +17434,7 @@ steps:
            
              final iapConnection = IAPConnection.instance;
            
-          @@ -37,6 +28,26 @@ class DashPurchases extends ChangeNotifier {
+          @@ -37,6 +28,27 @@ class DashPurchases extends ChangeNotifier {
                  onDone: _updateStreamOnDone,
                  onError: _updateStreamOnError,
                );
@@ -17394,14 +17454,15 @@ steps:
           +      storeKeyUpgrade,
           +    };
           +    final response = await iapConnection.queryProductDetails(ids);
-          +    products =
-          +        response.productDetails.map((e) => PurchasableProduct(e)).toList();
+          +    products = response.productDetails
+          +        .map((e) => PurchasableProduct(e))
+          +        .toList();
           +    storeState = StoreState.available;
           +    notifyListeners();
              }
            
              @override
-          @@ -46,18 +57,45 @@ class DashPurchases extends ChangeNotifier {
+          @@ -46,18 +58,45 @@ class DashPurchases extends ChangeNotifier {
              }
            
              Future<void> buy(PurchasableProduct product) async {
@@ -17495,16 +17556,15 @@ steps:
         patch-u: |
           --- b/in_app_purchases/step_10/app/lib/main.dart
           +++ a/in_app_purchases/step_10/app/lib/main.dart
-          @@ -79,7 +79,11 @@ class _MyHomePageState extends State<MyHomePage> {
+          @@ -78,7 +78,10 @@ class _MyHomePageState extends State<MyHomePage> {
                      create: (context) => IAPRepo(context.read<FirebaseNotifier>()),
                    ),
                    ChangeNotifierProvider<DashPurchases>(
           -          create: (context) => DashPurchases(context.read<DashCounter>()),
-          +          create:
-          +              (context) => DashPurchases(
-          +                context.read<DashCounter>(),
-          +                context.read<FirebaseNotifier>(),
-          +              ),
+          +          create: (context) => DashPurchases(
+          +            context.read<DashCounter>(),
+          +            context.read<FirebaseNotifier>(),
+          +          ),
                      lazy: false,
                    ),
                  ],
@@ -17544,7 +17604,7 @@ steps:
                final purchaseUpdated = iapConnection.purchaseStream;
                _subscription = purchaseUpdated.listen(
                  _onPurchaseUpdate,
-          @@ -83,13 +87,19 @@ class DashPurchases extends ChangeNotifier {
+          @@ -84,13 +88,19 @@ class DashPurchases extends ChangeNotifier {
            
              Future<void> _handlePurchase(PurchaseDetails purchaseDetails) async {
                if (purchaseDetails.status == PurchaseStatus.purchased) {
@@ -17571,7 +17631,7 @@ steps:
                  }
                }
            
-          @@ -98,6 +108,30 @@ class DashPurchases extends ChangeNotifier {
+          @@ -99,6 +109,30 @@ class DashPurchases extends ChangeNotifier {
                }
              }
            
@@ -17607,15 +17667,15 @@ steps:
         patch-u: |
           --- b/in_app_purchases/step_10/app/lib/logic/firebase_notifier.dart
           +++ a/in_app_purchases/step_10/app/lib/logic/firebase_notifier.dart
-          @@ -29,6 +29,8 @@ class FirebaseNotifier extends ChangeNotifier {
+          @@ -41,6 +41,8 @@ class FirebaseNotifier extends ChangeNotifier {
                return FirebaseFirestore.instance;
              }
            
           +  User? get user => FirebaseAuth.instance.currentUser;
           +
              Future<void> load() async {
+               _log.info('Starting Firebase initialization');
                try {
-                 await Firebase.initializeApp(
       - name: Patch app/lib/pages/purchase_page.dart
         path: steps/app/lib/pages/purchase_page.dart
         patch-u: |
@@ -17656,7 +17716,7 @@ steps:
         patch-u: |
           --- b/in_app_purchases/step_10/dart-backend/bin/server.dart
           +++ a/in_app_purchases/step_10/dart-backend/bin/server.dart
-          @@ -2,12 +2,111 @@
+          @@ -2,12 +2,113 @@
            // for details. All rights reserved. Use of this source code is governed by a
            // BSD-style license that can be found in the LICENSE file.
            
@@ -17679,8 +17739,9 @@ steps:
           +/// and their dependencies
           +Future<Map<String, PurchaseHandler>> _createPurchaseHandlers() async {
           +  // Configure Android Publisher API access
-          +  final serviceAccountGooglePlay =
-          +      File('assets/service-account-google-play.json').readAsStringSync();
+          +  final serviceAccountGooglePlay = File(
+          +    'assets/service-account-google-play.json',
+          +  ).readAsStringSync();
           +  final clientCredentialsGooglePlay = auth.ServiceAccountCredentials.fromJson(
           +    serviceAccountGooglePlay,
           +  );
@@ -17691,8 +17752,9 @@ steps:
           +  final androidPublisher = ap.AndroidPublisherApi(clientGooglePlay);
           +
           +  // Configure Firestore API access
-          +  final serviceAccountFirebase =
-          +      File('assets/service-account-firebase.json').readAsStringSync();
+          +  final serviceAccountFirebase = File(
+          +    'assets/service-account-firebase.json',
+          +  ).readAsStringSync();
           +  final clientCredentialsFirebase = auth.ServiceAccountCredentials.fromJson(
           +    serviceAccountFirebase,
           +  );
@@ -18113,12 +18175,12 @@ steps:
         patch-u: |
           --- b/in_app_purchases/step_11/app/lib/main.dart
           +++ a/in_app_purchases/step_11/app/lib/main.dart
-          @@ -83,6 +83,7 @@ class _MyHomePageState extends State<MyHomePage> {
-                         (context) => DashPurchases(
-                           context.read<DashCounter>(),
-                           context.read<FirebaseNotifier>(),
-          +                context.read<IAPRepo>(),
-                         ),
+          @@ -81,6 +81,7 @@ class _MyHomePageState extends State<MyHomePage> {
+                     create: (context) => DashPurchases(
+                       context.read<DashCounter>(),
+                       context.read<FirebaseNotifier>(),
+          +            context.read<IAPRepo>(),
+                     ),
                      lazy: false,
                    ),
       - name: Patch app/lib/logic/dash_purchases.dart
@@ -18157,7 +18219,7 @@ steps:
                loadPurchases();
              }
            
-          @@ -57,6 +59,7 @@ class DashPurchases extends ChangeNotifier {
+          @@ -58,6 +60,7 @@ class DashPurchases extends ChangeNotifier {
              @override
              void dispose() {
                _subscription.cancel();
@@ -18165,7 +18227,7 @@ steps:
                super.dispose();
              }
            
-          @@ -139,4 +142,59 @@ class DashPurchases extends ChangeNotifier {
+          @@ -140,4 +143,55 @@ class DashPurchases extends ChangeNotifier {
              void _updateStreamOnError(dynamic error) {
                //Handle error here
              }
@@ -18176,16 +18238,12 @@ steps:
           +    // Get a list of purchasable products for the subscription and upgrade.
           +    // This should be 1 per type.
           +    if (products.isNotEmpty) {
-          +      subscriptions =
-          +          products
-          +              .where(
-          +                (element) => element.productDetails.id == storeKeySubscription,
-          +              )
-          +              .toList();
-          +      upgrades =
-          +          products
-          +              .where((element) => element.productDetails.id == storeKeyUpgrade)
-          +              .toList();
+          +      subscriptions = products
+          +          .where((element) => element.productDetails.id == storeKeySubscription)
+          +          .toList();
+          +      upgrades = products
+          +          .where((element) => element.productDetails.id == storeKeyUpgrade)
+          +          .toList();
           +    }
           +
           +    // Set the subscription in the counter logic and show/hide purchased on the
@@ -18248,7 +18306,7 @@ steps:
            import 'package:googleapis_auth/auth_io.dart' as auth;
            import 'package:shelf/shelf.dart';
            import 'package:shelf_router/shelf_router.dart';
-          @@ -26,12 +29,16 @@ Future<Map<String, PurchaseHandler>> _createPurchaseHandlers() async {
+          @@ -27,12 +30,16 @@ Future<Map<String, PurchaseHandler>> _createPurchaseHandlers() async {
              final clientCredentialsGooglePlay = auth.ServiceAccountCredentials.fromJson(
                serviceAccountGooglePlay,
              );
@@ -18267,14 +18325,15 @@ steps:
           +  final pubsubApi = pubsub.PubsubApi(clientGooglePlay);
           +
              // Configure Firestore API access
-             final serviceAccountFirebase =
-                 File('assets/service-account-firebase.json').readAsStringSync();
-          @@ -47,9 +54,41 @@ Future<Map<String, PurchaseHandler>> _createPurchaseHandlers() async {
+             final serviceAccountFirebase = File(
+               'assets/service-account-firebase.json',
+          @@ -49,9 +56,42 @@ Future<Map<String, PurchaseHandler>> _createPurchaseHandlers() async {
              final projectId = json['project_id'] as String;
              final iapRepository = IapRepository(firestoreApi, projectId);
            
-          +  final subscriptionKeyAppStore =
-          +      File('assets/SubscriptionKey.p8').readAsStringSync();
+          +  final subscriptionKeyAppStore = File(
+          +    'assets/SubscriptionKey.p8',
+          +  ).readAsStringSync();
           +
           +  // Configure Apple Store API access
           +  var appStoreEnvironment = AppStoreEnvironment.sandbox(
@@ -18338,7 +18397,7 @@ steps:
            
              final _iTunesAPI = ITunesApi(
                ITunesHttpClient(ITunesEnvironment.sandbox(), loggingEnabled: true),
-          @@ -96,4 +105,53 @@ class AppStorePurchaseHandler extends PurchaseHandler {
+          @@ -96,4 +105,52 @@ class AppStorePurchaseHandler extends PurchaseHandler {
                  return false;
                }
              }
@@ -18381,10 +18440,9 @@ steps:
           +              ),
           +              type: ProductType.subscription,
           +              expiryDate: expirationDate,
-          +              status:
-          +                  isExpired
-          +                      ? SubscriptionStatus.expired
-          +                      : SubscriptionStatus.active,
+          +              status: isExpired
+          +                  ? SubscriptionStatus.expired
+          +                  : SubscriptionStatus.active,
           +            ),
           +          );
           +        }
@@ -18526,7 +18584,7 @@ steps:
         patch-u: |
           --- b/in_app_purchases/complete/app/lib/logic/dash_purchases.dart
           +++ a/in_app_purchases/complete/app/lib/logic/dash_purchases.dart
-          @@ -192,8 +192,8 @@ class DashPurchases extends ChangeNotifier {
+          @@ -189,8 +189,8 @@ class DashPurchases extends ChangeNotifier {
              }
            
              void _updateStatus(PurchasableProduct product, ProductStatus status) {

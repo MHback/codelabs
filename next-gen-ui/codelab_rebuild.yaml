@@ -23,6 +23,21 @@ steps:
               unused_element: ignore
       - name: Remove README
         rm: next_gen_ui/README.md
+      - name: Add .gemini directory
+        mkdir: next_gen_ui/.gemini
+      - name: Add .gemini/settings.json
+        path: next_gen_ui/.gemini/settings.json
+        replace-contents: |
+          {
+              "mcpServers": {
+                  "dart": {
+                      "command": "dart",
+                      "args": [
+                          "mcp-server"
+                      ]
+                  }
+              }
+          }
       - name: Add .vscode directory
         mkdir: next_gen_ui/.vscode
       - name: Add .vscode/launch.json
@@ -869,7 +884,7 @@ steps:
               Animation<double> animation = buildAnimation(controller, entry);
               return getOptimizedBuilder<double>(
                 animation: animation,
-                builder: (_, __) {
+                builder: (_, _) {
                   return AnimatedSampler(
                     (image, size, canvas) {
                       EdgeInsets? insets;
@@ -1581,9 +1596,10 @@ steps:
                 if (fragmentPrograms == null) return const SizedBox.expand();
                 return ListenableBuilder(
                   listenable: _heartbeatAnim,
-                  builder: (_, __) {
-                    final heartbeatEnergy =
-                        _heartbeatAnim.drive(_heartbeatSequence).value;
+                  builder: (_, _) {
+                    final heartbeatEnergy = _heartbeatAnim
+                        .drive(_heartbeatSequence)
+                        .value;
                     return TweenAnimationBuilder(
                       tween: Tween<double>(
                         begin: widget.minEnergy,
@@ -2566,7 +2582,7 @@ steps:
         patch-u: |
           --- b/next-gen-ui/step_04_c/lib/title_screen/title_screen_ui.dart
           +++ a/next-gen-ui/step_04_c/lib/title_screen/title_screen_ui.dart
-          @@ -228,33 +228,40 @@ class _StartBtnState extends State<_StartBtn> {
+          @@ -228,33 +228,41 @@ class _StartBtnState extends State<_StartBtn> {
                    }
                    _wasHovered = (state.isHovered || state.isFocused);
                    return SizedBox(
@@ -2589,13 +2605,7 @@ steps:
           -                      style: TextStyles.btn.copyWith(
           -                        fontSize: 24,
           -                        letterSpacing: 18,
-          +              width: 520,
-          +              height: 100,
-          +              child: Stack(
-          +                    children: [
-          +                      Positioned.fill(
-          +                        child: Image.asset(AssetPaths.titleStartBtn),
-                                 ),
+          -                      ),
           -                    ),
           -                  ],
           -                ),
@@ -2603,29 +2613,37 @@ steps:
           -            ],
           -          ),
           -        );
-          +                      if (state.isHovered || state.isFocused) ...[
-          +                        Positioned.fill(
-          +                          child: Image.asset(AssetPaths.titleStartBtnHover),
-          +                        ),
-          +                      ],
-          +                      Center(
-          +                        child: Row(
-          +                          mainAxisAlignment: MainAxisAlignment.end,
-          +                          children: [
-          +                            Text(
-          +                              'START MISSION',
-          +                              style: TextStyles.btn.copyWith(
-          +                                fontSize: 24,
-          +                                letterSpacing: 18,
-          +                              ),
+          +              width: 520,
+          +              height: 100,
+          +              child:
+          +                  Stack(
+          +                        children: [
+          +                          Positioned.fill(
+          +                            child: Image.asset(AssetPaths.titleStartBtn),
+          +                          ),
+          +                          if (state.isHovered || state.isFocused) ...[
+          +                            Positioned.fill(
+          +                              child: Image.asset(AssetPaths.titleStartBtnHover),
           +                            ),
           +                          ],
-          +                        ),
-          +                      ),
-          +                    ],
-          +                  )
-          +                  .animate(autoPlay: false, onInit: (c) => _btnAnim = c)
-          +                  .shimmer(duration: .7.seconds, color: Colors.black),
+          +                          Center(
+          +                            child: Row(
+          +                              mainAxisAlignment: MainAxisAlignment.end,
+          +                              children: [
+          +                                Text(
+          +                                  'START MISSION',
+          +                                  style: TextStyles.btn.copyWith(
+          +                                    fontSize: 24,
+          +                                    letterSpacing: 18,
+          +                                  ),
+          +                                ),
+          +                              ],
+          +                            ),
+          +                          ),
+          +                        ],
+          +                      )
+          +                      .animate(autoPlay: false, onInit: (c) => _btnAnim = c)
+          +                      .shimmer(duration: .7.seconds, color: Colors.black),
           +            )
           +            .animate()
           +            .fadeIn(delay: 2.3.seconds)
@@ -2655,7 +2673,7 @@ steps:
         patch-u: |
           --- b/next-gen-ui/step_04_d/lib/title_screen/title_screen_ui.dart
           +++ a/next-gen-ui/step_04_d/lib/title_screen/title_screen_ui.dart
-          @@ -169,10 +169,17 @@ class _DifficultyBtn extends StatelessWidget {
+          @@ -169,10 +169,16 @@ class _DifficultyBtn extends StatelessWidget {
                        child: Stack(
                          children: [
                            /// Bg with fill and outline
@@ -2664,10 +2682,9 @@ steps:
           -                    color: const Color(0xFF00D1FF).withAlpha(25),
           -                    border: Border.all(color: Colors.white, width: 5),
           +                AnimatedOpacity(
-          +                  opacity:
-          +                      (!selected && (state.isHovered || state.isFocused))
-          +                          ? 1
-          +                          : 0,
+          +                  opacity: (!selected && (state.isHovered || state.isFocused))
+          +                      ? 1
+          +                      : 0,
           +                  duration: .3.seconds,
           +                  child: Container(
           +                    decoration: BoxDecoration(
@@ -2861,11 +2878,11 @@ steps:
           +    return TweenAnimationBuilder(
           +      tween: ColorTween(begin: emitColor, end: emitColor),
           +      duration: duration,
-          +      builder: (_, emitColor, __) {
+          +      builder: (_, emitColor, _) {
           +        return TweenAnimationBuilder(
           +          tween: ColorTween(begin: orbColor, end: orbColor),
           +          duration: duration,
-          +          builder: (context, orbColor, __) {
+          +          builder: (context, orbColor, _) {
           +            return builder(context, orbColor!, emitColor!);
           +          },
           +        );
@@ -3069,7 +3086,7 @@ steps:
              Color get _emitColor =>
                  AppColors.emitColors[_difficultyOverride ?? _difficulty];
              Color get _orbColor =>
-          @@ -27,88 +48,190 @@ class _TitleScreenState extends State<TitleScreen> {
+          @@ -27,88 +48,189 @@ class _TitleScreenState extends State<TitleScreen> {
            
              /// Currently focused difficulty (if any)
              int? _difficultyOverride;
@@ -3259,10 +3276,9 @@ steps:
           +                            materialColor: orbColor,
           +                            lightColor: orbColor,
           +                          ),
-          +                          onUpdate:
-          +                              (energy) => setState(() {
-          +                                _orbEnergy = energy;
-          +                              }),
+          +                          onUpdate: (energy) => setState(() {
+          +                            _orbEnergy = energy;
+          +                          }),
           +                        ),
           +                      ],
           +                    ),
@@ -3327,7 +3343,7 @@ steps:
                    ),
                  ),
                );
-          @@ -119,19 +242,26 @@ class _LitImage extends StatelessWidget {
+          @@ -119,19 +241,26 @@ class _LitImage extends StatelessWidget {
              const _LitImage({
                required this.color,
                required this.imgSrc,
@@ -3460,7 +3476,7 @@ steps:
            import 'title_screen_ui.dart';
            
            class TitleScreen extends StatefulWidget {
-          @@ -200,6 +201,16 @@ class _TitleScreenState extends State<TitleScreen>
+          @@ -199,6 +200,16 @@ class _TitleScreenState extends State<TitleScreen>
                                lightAmt: _finalEmitLightAmt,
                              ),
            

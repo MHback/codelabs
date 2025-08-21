@@ -22,7 +22,6 @@ class AdaptiveNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, dimens) {
-        // Tablet Layout
         if (dimens.maxWidth >= 600) {
           return Scaffold(
             body: Row(
@@ -30,15 +29,14 @@ class AdaptiveNavigation extends StatelessWidget {
                 NavigationRail(
                   extended: dimens.maxWidth >= 800,
                   minExtendedWidth: 180,
-                  destinations:
-                      destinations
-                          .map(
-                            (e) => NavigationRailDestination(
-                              icon: e.icon,
-                              label: Text(e.label),
-                            ),
-                          )
-                          .toList(),
+                  destinations: destinations
+                      .map(
+                        (e) => NavigationRailDestination(
+                          icon: e.icon,
+                          label: Text(e.label),
+                        ),
+                      )
+                      .toList(),
                   selectedIndex: selectedIndex,
                   onDestinationSelected: onDestinationSelected,
                 ),

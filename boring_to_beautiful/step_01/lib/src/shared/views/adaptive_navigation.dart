@@ -22,23 +22,20 @@ class AdaptiveNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, dimens) {
-        // Tablet Layout
-        // Add maxWidth constraint check
         return Scaffold(
           body: Row(
             children: [
               NavigationRail(
                 extended: dimens.maxWidth >= 800,
                 minExtendedWidth: 180,
-                destinations:
-                    destinations
-                        .map(
-                          (e) => NavigationRailDestination(
-                            icon: e.icon,
-                            label: Text(e.label),
-                          ),
-                        )
-                        .toList(),
+                destinations: destinations
+                    .map(
+                      (e) => NavigationRailDestination(
+                        icon: e.icon,
+                        label: Text(e.label),
+                      ),
+                    )
+                    .toList(),
                 selectedIndex: selectedIndex,
                 onDestinationSelected: onDestinationSelected,
               ),
@@ -46,9 +43,6 @@ class AdaptiveNavigation extends StatelessWidget {
             ],
           ),
         );
-        // Add closing curly bracket
-
-        // Add return for mobile layout
       },
     );
   }

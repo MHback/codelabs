@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:adaptive_components/adaptive_components.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/classes/classes.dart';
 import '../../../shared/extensions.dart';
 import '../../../shared/providers/providers.dart';
 import '../../../shared/views/views.dart';
+import '../../../utils/adaptive_components.dart';
 import '../../playlists/view/playlist_songs.dart';
 import 'view.dart';
 
@@ -49,31 +49,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               body: LayoutBuilder(
-                builder:
-                    (context, constraints) => TabBarView(
-                      children: [
-                        SingleChildScrollView(
-                          child: Column(
-                            children: [
-                              const HomeHighlight(),
-                              HomeArtists(
-                                artists: artists,
-                                constraints: constraints,
-                              ),
-                            ],
+                builder: (context, constraints) => TabBarView(
+                  children: [
+                    SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          const HomeHighlight(),
+                          HomeArtists(
+                            artists: artists,
+                            constraints: constraints,
                           ),
-                        ),
-                        HomeRecent(playlists: playlists, axis: Axis.vertical),
-                        PlaylistSongs(
-                          playlist: topSongs,
-                          constraints: constraints,
-                        ),
-                        PlaylistSongs(
-                          playlist: newReleases,
-                          constraints: constraints,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    HomeRecent(playlists: playlists, axis: Axis.vertical),
+                    PlaylistSongs(playlist: topSongs, constraints: constraints),
+                    PlaylistSongs(
+                      playlist: newReleases,
+                      constraints: constraints,
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -107,11 +103,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       const HomeHighlight(),
                       LayoutBuilder(
-                        builder:
-                            (context, constraints) => HomeArtists(
-                              artists: artists,
-                              constraints: constraints,
-                            ),
+                        builder: (context, constraints) => HomeArtists(
+                          artists: artists,
+                          constraints: constraints,
+                        ),
                       ),
                     ],
                   ),
@@ -159,8 +154,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               LayoutBuilder(
-                                builder:
-                                    (context, constraints) => PlaylistSongs(
+                                builder: (context, constraints) =>
+                                    PlaylistSongs(
                                       playlist: topSongs,
                                       constraints: constraints,
                                     ),
@@ -186,8 +181,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               LayoutBuilder(
-                                builder:
-                                    (context, constraints) => PlaylistSongs(
+                                builder: (context, constraints) =>
+                                    PlaylistSongs(
                                       playlist: newReleases,
                                       constraints: constraints,
                                     ),

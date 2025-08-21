@@ -25,6 +25,21 @@ steps:
           linter:
             rules:
               prefer_const_constructors: false
+      - name: Add .gemini directory
+        mkdir: generate_crossword/.gemini
+      - name: Add .gemini/settings.json
+        path: generate_crossword/.gemini/settings.json
+        replace-contents: |
+          {
+              "mcpServers": {
+                  "dart": {
+                      "command": "dart",
+                      "args": [
+                          "mcp-server"
+                      ]
+                  }
+              }
+          }
       - name: Remove README
         rm: generate_crossword/README.md
       - name: Add .vscode directory
@@ -153,13 +168,12 @@ steps:
                       builder: (context, ref, _) {
                         final wordListAsync = ref.watch(wordListProvider);
                         return wordListAsync.when(
-                          data:
-                              (wordList) => ListView.builder(
-                                itemCount: wordList.length,
-                                itemBuilder: (context, index) {
-                                  return ListTile(title: Text(wordList.elementAt(index)));
-                                },
-                              ),
+                          data: (wordList) => ListView.builder(
+                            itemCount: wordList.length,
+                            itemBuilder: (context, index) {
+                              return ListTile(title: Text(wordList.elementAt(index)));
+                            },
+                          ),
                           error: (error, stackTrace) => Center(child: Text('$error')),
                           loading: () => Center(child: CircularProgressIndicator()),
                         );
@@ -211,11 +225,10 @@ steps:
                 .convert(words)
                 .toBuiltSet()
                 .rebuild(
-                  (b) =>
-                      b
-                        ..map((word) => word.toLowerCase().trim())
-                        ..where((word) => word.length > 2)
-                        ..where((word) => re.hasMatch(word)),
+                  (b) => b
+                    ..map((word) => word.toLowerCase().trim())
+                    ..where((word) => word.length > 2)
+                    ..where((word) => re.hasMatch(word)),
                 );
           }
       - name: Flutter clean
@@ -227,6 +240,9 @@ steps:
       - name: Run build_runner
         path: generate_crossword
         dart: run build_runner build --delete-conflicting-outputs
+      - name: dart format lib/providers.g.dart
+        path: generate_crossword
+        dart: format lib/providers.g.dart
       - name: mkdir assets
         mkdir: generate_crossword/assets
       - name: add words.txt
@@ -49035,10 +49051,6 @@ steps:
                  ),
                ),
              );
-      - name: Build macOS app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build macos
       - name: Copy step_03
         copydir:
           from: generate_crossword
@@ -49157,11 +49169,10 @@ steps:
               required Direction direction,
             }) {
               return CrosswordWord(
-                (b) =>
-                    b
-                      ..word = word
-                      ..direction = direction
-                      ..location.replace(location),
+                (b) => b
+                  ..word = word
+                  ..direction = direction
+                  ..location.replace(location),
               );
             }
 
@@ -49240,15 +49251,14 @@ steps:
               required Direction direction,
             }) {
               return rebuild(
-                (b) =>
-                    b
-                      ..words.add(
-                        CrosswordWord.word(
-                          word: word,
-                          direction: direction,
-                          location: location,
-                        ),
-                      ),
+                (b) => b
+                  ..words.add(
+                    CrosswordWord.word(
+                      word: word,
+                      direction: direction,
+                      location: location,
+                    ),
+                  ),
               );
             }
 
@@ -49264,21 +49274,19 @@ steps:
                       b.characters.updateValue(
                         word.location.rightOffset(idx),
                         (b) => b.rebuild((bInner) => bInner.acrossWord.replace(word)),
-                        ifAbsent:
-                            () => CrosswordCharacter.character(
-                              acrossWord: word,
-                              character: character,
-                            ),
+                        ifAbsent: () => CrosswordCharacter.character(
+                          acrossWord: word,
+                          character: character,
+                        ),
                       );
                     case Direction.down:
                       b.characters.updateValue(
                         word.location.downOffset(idx),
                         (b) => b.rebuild((bInner) => bInner.downWord.replace(word)),
-                        ifAbsent:
-                            () => CrosswordCharacter.character(
-                              downWord: word,
-                              character: character,
-                            ),
+                        ifAbsent: () => CrosswordCharacter.character(
+                          downWord: word,
+                          character: character,
+                        ),
                       );
                   }
                 }
@@ -49393,8 +49401,8 @@ steps:
            part 'providers.g.dart';
            
            /// A provider for the wordlist to use when generating the crossword.
-          @@ -32,3 +37,76 @@ Future<BuiltSet<String>> wordList(Ref ref) async {
-                         ..where((word) => re.hasMatch(word)),
+          @@ -31,3 +36,77 @@ Future<BuiltSet<String>> wordList(Ref ref) async {
+                     ..where((word) => re.hasMatch(word)),
                  );
            }
           +
@@ -49443,8 +49451,9 @@ steps:
           +    data: (wordList) async* {
           +      while (crossword.characters.length < size.width * size.height * 0.8) {
           +        final word = wordList.randomElement();
-          +        final direction =
-          +            _random.nextBool() ? model.Direction.across : model.Direction.down;
+          +        final direction = _random.nextBool()
+          +            ? model.Direction.across
+          +            : model.Direction.down;
           +        final location = model.Location.at(
           +          _random.nextInt(size.width),
           +          _random.nextInt(size.height),
@@ -49576,7 +49585,7 @@ steps:
                      titleTextStyle: TextStyle(
                        color: Theme.of(context).colorScheme.primary,
                        fontSize: 16,
-          @@ -22,24 +24,7 @@ class CrosswordGeneratorApp extends StatelessWidget {
+          @@ -22,23 +24,7 @@ class CrosswordGeneratorApp extends StatelessWidget {
                      ),
                      title: Text('Crossword Generator'),
                    ),
@@ -49585,13 +49594,12 @@ steps:
           -            builder: (context, ref, _) {
           -              final wordListAsync = ref.watch(wordListProvider);
           -              return wordListAsync.when(
-          -                data:
-          -                    (wordList) => ListView.builder(
-          -                      itemCount: wordList.length,
-          -                      itemBuilder: (context, index) {
-          -                        return ListTile(title: Text(wordList.elementAt(index)));
-          -                      },
-          -                    ),
+          -                data: (wordList) => ListView.builder(
+          -                  itemCount: wordList.length,
+          -                  itemBuilder: (context, index) {
+          -                    return ListTile(title: Text(wordList.elementAt(index)));
+          -                  },
+          -                ),
           -                error: (error, stackTrace) => Center(child: Text('$error')),
           -                loading: () => Center(child: CircularProgressIndicator()),
           -              );
@@ -49602,7 +49610,7 @@ steps:
                  ),
                );
              }
-          @@ -55,3 +40,25 @@ class _EagerInitialization extends ConsumerWidget {
+          @@ -54,3 +40,23 @@ class _EagerInitialization extends ConsumerWidget {
                return child;
              }
            }
@@ -49614,30 +49622,24 @@ steps:
           +      for (final entry in CrosswordSize.values)
           +        MenuItemButton(
           +          onPressed: () => ref.read(sizeProvider.notifier).setSize(entry),
-          +          leadingIcon:
-          +              entry == ref.watch(sizeProvider)
-          +                  ? Icon(Icons.radio_button_checked_outlined)
-          +                  : Icon(Icons.radio_button_unchecked_outlined),
+          +          leadingIcon: entry == ref.watch(sizeProvider)
+          +              ? Icon(Icons.radio_button_checked_outlined)
+          +              : Icon(Icons.radio_button_unchecked_outlined),
           +          child: Text(entry.label),
           +        ),
           +    ],
-          +    builder:
-          +        (context, controller, child) => IconButton(
-          +          onPressed: () => controller.open(),
-          +          icon: Icon(Icons.settings),
-          +        ),
+          +    builder: (context, controller, child) => IconButton(
+          +      onPressed: () => controller.open(),
+          +      icon: Icon(Icons.settings),
+          +    ),
           +  );
           +}
       - name: Run build_runner
         path: generate_crossword
         dart: run build_runner build --delete-conflicting-outputs
-      - name: format model.g.dart
+      - name: dart format lib/model.g.dart lib/providers.g.dart
         path: generate_crossword
-        dart: format lib/model.g.dart
-      - name: Build macOS app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build macos
+        dart: format lib/model.g.dart lib/providers.g.dart
       - name: Copy step_04
         copydir:
           from: generate_crossword
@@ -49761,12 +49763,11 @@ steps:
               Crossword crossword = Crossword.crossword(width: 50, height: 50);
               expect(crossword.valid, true);
 
-              crossword =
-                  crossword.addWord(
-                    direction: Direction.across,
-                    location: Location.at(0, 0),
-                    word: 'this',
-                  )!;
+              crossword = crossword.addWord(
+                direction: Direction.across,
+                location: Location.at(0, 0),
+                word: 'this',
+              )!;
               expect(crossword.valid, true);
 
               final crossword2 = crossword.addWord(
@@ -49828,18 +49829,13 @@ steps:
 
               final topLeft = Location.at(0, 0);
 
-              crossword =
-                  crossword
-                      .addWord(
-                        location: topLeft,
-                        word: 'this',
-                        direction: Direction.down,
-                      )!
-                      .addWord(
-                        location: topLeft,
-                        word: 'total',
-                        direction: Direction.across,
-                      )!;
+              crossword = crossword
+                  .addWord(location: topLeft, word: 'this', direction: Direction.down)!
+                  .addWord(
+                    location: topLeft,
+                    word: 'total',
+                    direction: Direction.across,
+                  )!;
 
               expect(crossword.valid, isTrue);
 
@@ -49891,20 +49887,19 @@ steps:
 
             test('Crossword is not valid with run-on across words', () {
               Crossword crossword = Crossword.crossword(width: 50, height: 50).rebuild(
-                (b) =>
-                    b
-                      ..words.addAll([
-                        CrosswordWord.word(
-                          direction: Direction.across,
-                          location: Location.at(0, 0),
-                          word: 'word',
-                        ),
-                        CrosswordWord.word(
-                          direction: Direction.across,
-                          location: Location.at(4, 0),
-                          word: 'another',
-                        ),
-                      ]),
+                (b) => b
+                  ..words.addAll([
+                    CrosswordWord.word(
+                      direction: Direction.across,
+                      location: Location.at(0, 0),
+                      word: 'word',
+                    ),
+                    CrosswordWord.word(
+                      direction: Direction.across,
+                      location: Location.at(4, 0),
+                      word: 'another',
+                    ),
+                  ]),
               );
 
               expect(crossword.valid, false);
@@ -49912,20 +49907,19 @@ steps:
 
             test('Crossword is not valid with run-on down words', () {
               Crossword crossword = Crossword.crossword(width: 50, height: 50).rebuild(
-                (b) =>
-                    b
-                      ..words.addAll([
-                        CrosswordWord.word(
-                          direction: Direction.down,
-                          location: Location.at(0, 0),
-                          word: 'word',
-                        ),
-                        CrosswordWord.word(
-                          direction: Direction.down,
-                          location: Location.at(0, 4),
-                          word: 'another',
-                        ),
-                      ]),
+                (b) => b
+                  ..words.addAll([
+                    CrosswordWord.word(
+                      direction: Direction.down,
+                      location: Location.at(0, 0),
+                      word: 'word',
+                    ),
+                    CrosswordWord.word(
+                      direction: Direction.down,
+                      location: Location.at(0, 4),
+                      word: 'another',
+                    ),
+                  ]),
               );
 
               expect(crossword.valid, false);
@@ -49933,20 +49927,19 @@ steps:
 
             test('Crossword is not valid with run-on across/down words', () {
               Crossword crossword = Crossword.crossword(width: 50, height: 50).rebuild(
-                (b) =>
-                    b
-                      ..words.addAll([
-                        CrosswordWord.word(
-                          direction: Direction.across,
-                          location: Location.at(0, 0),
-                          word: 'word',
-                        ),
-                        CrosswordWord.word(
-                          direction: Direction.down,
-                          location: Location.at(4, 0),
-                          word: 'another',
-                        ),
-                      ]),
+                (b) => b
+                  ..words.addAll([
+                    CrosswordWord.word(
+                      direction: Direction.across,
+                      location: Location.at(0, 0),
+                      word: 'word',
+                    ),
+                    CrosswordWord.word(
+                      direction: Direction.down,
+                      location: Location.at(4, 0),
+                      word: 'another',
+                    ),
+                  ]),
               );
 
               expect(crossword.valid, false);
@@ -49954,20 +49947,19 @@ steps:
 
             test('Crossword is not valid with run-on down/across words', () {
               Crossword? crossword = Crossword.crossword(width: 50, height: 50).rebuild(
-                (b) =>
-                    b
-                      ..words.addAll([
-                        CrosswordWord.word(
-                          direction: Direction.down,
-                          location: Location.at(0, 0),
-                          word: 'word',
-                        ),
-                        CrosswordWord.word(
-                          direction: Direction.across,
-                          location: Location.at(0, 4),
-                          word: 'another',
-                        ),
-                      ]),
+                (b) => b
+                  ..words.addAll([
+                    CrosswordWord.word(
+                      direction: Direction.down,
+                      location: Location.at(0, 0),
+                      word: 'word',
+                    ),
+                    CrosswordWord.word(
+                      direction: Direction.across,
+                      location: Location.at(0, 4),
+                      word: 'another',
+                    ),
+                  ]),
               );
 
               expect(crossword.valid, false);
@@ -49976,12 +49968,11 @@ steps:
             test('Adding duplicate across words returns null', () {
               Crossword? crossword = Crossword.crossword(width: 50, height: 50);
 
-              crossword =
-                  crossword.addWord(
-                    direction: Direction.across,
-                    location: Location.at(0, 0),
-                    word: 'duplicated',
-                  )!;
+              crossword = crossword.addWord(
+                direction: Direction.across,
+                location: Location.at(0, 0),
+                word: 'duplicated',
+              )!;
 
               expect(
                 crossword.addWord(
@@ -49995,20 +49986,19 @@ steps:
 
             test('Crossword is not valid with duplicate across words', () {
               Crossword? crossword = Crossword.crossword(width: 50, height: 50).rebuild(
-                (b) =>
-                    b
-                      ..words.addAll([
-                        CrosswordWord.word(
-                          direction: Direction.across,
-                          location: Location.at(0, 0),
-                          word: 'duplicated',
-                        ),
-                        CrosswordWord.word(
-                          direction: Direction.across,
-                          location: Location.at(4, 4),
-                          word: 'duplicated',
-                        ),
-                      ]),
+                (b) => b
+                  ..words.addAll([
+                    CrosswordWord.word(
+                      direction: Direction.across,
+                      location: Location.at(0, 0),
+                      word: 'duplicated',
+                    ),
+                    CrosswordWord.word(
+                      direction: Direction.across,
+                      location: Location.at(4, 4),
+                      word: 'duplicated',
+                    ),
+                  ]),
               );
 
               expect(crossword.valid, false);
@@ -50017,12 +50007,11 @@ steps:
             test('Adding duplicate down words returns null', () {
               Crossword? crossword = Crossword.crossword(width: 50, height: 50);
 
-              crossword =
-                  crossword.addWord(
-                    direction: Direction.down,
-                    location: Location.at(0, 0),
-                    word: 'duplicated',
-                  )!;
+              crossword = crossword.addWord(
+                direction: Direction.down,
+                location: Location.at(0, 0),
+                word: 'duplicated',
+              )!;
 
               expect(
                 crossword.addWord(
@@ -50036,20 +50025,19 @@ steps:
 
             test('Crossword is not valid with duplicate down words', () {
               Crossword? crossword = Crossword.crossword(width: 50, height: 50).rebuild(
-                (b) =>
-                    b
-                      ..words.addAll([
-                        CrosswordWord.word(
-                          direction: Direction.down,
-                          location: Location.at(0, 0),
-                          word: 'duplicated',
-                        ),
-                        CrosswordWord.word(
-                          direction: Direction.down,
-                          location: Location.at(4, 4),
-                          word: 'duplicated',
-                        ),
-                      ]),
+                (b) => b
+                  ..words.addAll([
+                    CrosswordWord.word(
+                      direction: Direction.down,
+                      location: Location.at(0, 0),
+                      word: 'duplicated',
+                    ),
+                    CrosswordWord.word(
+                      direction: Direction.down,
+                      location: Location.at(4, 4),
+                      word: 'duplicated',
+                    ),
+                  ]),
               );
 
               expect(crossword.valid, false);
@@ -50060,7 +50048,7 @@ steps:
         patch: |
           --- b/generate_crossword/step_05_a/lib/model.dart
           +++ a/generate_crossword/step_05_a/lib/model.dart
-          @@ -175,16 +175,118 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
+          @@ -174,16 +174,118 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
              /// The words in the crossword.
              BuiltList<CrosswordWord> get words;
            
@@ -50179,12 +50167,12 @@ steps:
           +    }
           +
           +    final candidate = rebuild(
-                 (b) =>
-                     b
-                       ..words.add(
-          @@ -195,6 +297,12 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
-                         ),
-                       ),
+                 (b) => b
+                   ..words.add(
+                     CrosswordWord.word(
+          @@ -193,6 +295,12 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
+                     ),
+                   ),
                );
           +
           +    if (candidate.valid) {
@@ -50226,28 +50214,12 @@ steps:
       - name: Run build_runner
         path: generate_crossword
         dart: run build_runner build --delete-conflicting-outputs
-      - name: format model.g.dart
+      - name: dart format lib/model.g.dart lib/providers.g.dart
         path: generate_crossword
-        dart: format lib/model.g.dart
+        dart: format lib/model.g.dart lib/providers.g.dart
       - name: Flutter test
         path: generate_crossword
         flutter: test
-      - name: Build iOS simulator app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build ios --simulator
-      - name: workaround pt 1
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: clean   
-      - name: workaround pt 2
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: pub get
-      - name: Build macOS app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build macos
       - name: Copy step_05_a
         copydir:
           from: generate_crossword
@@ -50304,28 +50276,12 @@ steps:
       - name: Run build_runner
         path: generate_crossword
         dart: run build_runner build --delete-conflicting-outputs
-      - name: format model.g.dart
+      - name: dart format lib/model.g.dart lib/providers.g.dart
         path: generate_crossword
-        dart: format lib/model.g.dart
+        dart: format lib/model.g.dart lib/providers.g.dart
       - name: Flutter test
         path: generate_crossword
         flutter: test
-      - name: Build iOS simulator app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build ios --simulator
-      - name: workaround pt 1
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: clean   
-      - name: workaround pt 2
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: pub get
-      - name: Build macOS app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build macos
       - name: Copy step_05_b
         copydir:
           from: generate_crossword
@@ -50408,7 +50364,7 @@ steps:
            
            part 'providers.g.dart';
            
-          @@ -67,57 +66,28 @@ class Size extends _$Size {
+          @@ -66,58 +65,27 @@ class Size extends _$Size {
              }
            }
            
@@ -50429,8 +50385,9 @@ steps:
           -    data: (wordList) async* {
           -      while (crossword.characters.length < size.width * size.height * 0.8) {
           -        final word = wordList.randomElement();
-          -        final direction =
-          -            _random.nextBool() ? model.Direction.across : model.Direction.down;
+          -        final direction = _random.nextBool()
+          -            ? model.Direction.across
+          -            : model.Direction.down;
           -        final location = model.Location.at(
           -          _random.nextInt(size.width),
           -          _random.nextInt(size.height),
@@ -50458,11 +50415,10 @@ steps:
           -
           -      yield crossword;
           -    },
-          +    data:
-          +        (wordList) => exploreCrosswordSolutions(
-          +          crossword: emptyCrossword,
-          +          wordList: wordList,
-          +        ),
+          +    data: (wordList) => exploreCrosswordSolutions(
+          +      crossword: emptyCrossword,
+          +      wordList: wordList,
+          +    ),
                error: (error, stackTrace) async* {
                  debugPrint('Error loading word list: $error');
           -      yield crossword;
@@ -50477,28 +50433,12 @@ steps:
       - name: Run build_runner
         path: generate_crossword
         dart: run build_runner build --delete-conflicting-outputs
-      - name: format model.g.dart
+      - name: dart format lib/model.g.dart lib/providers.g.dart
         path: generate_crossword
-        dart: format lib/model.g.dart
+        dart: format lib/model.g.dart lib/providers.g.dart
       - name: Flutter test
         path: generate_crossword
         flutter: test
-      - name: Build iOS simulator app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build ios --simulator
-      - name: workaround pt 1
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: clean   
-      - name: workaround pt 2
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: pub get
-      - name: Build macOS app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build macos
       - name: Copy step_05_c
         copydir:
           from: generate_crossword
@@ -50523,7 +50463,7 @@ steps:
            import 'package:flutter_test/flutter_test.dart';
            import 'package:generate_crossword/model.dart';
            
-          @@ -397,4 +398,121 @@ void main() {
+          @@ -383,4 +384,117 @@ void main() {
            
                expect(crossword.valid, false);
              });
@@ -50537,12 +50477,11 @@ steps:
           +    );
           +    expect(queue.locationsToTry.length, 1);
           +
-          +    crossword =
-          +        crossword.addWord(
-          +          direction: Direction.across,
-          +          location: Location.at(0, 0),
-          +          word: 'word',
-          +        )!;
+          +    crossword = crossword.addWord(
+          +      direction: Direction.across,
+          +      location: Location.at(0, 0),
+          +      word: 'word',
+          +    )!;
           +    queue = WorkQueue.from(
           +      crossword: crossword,
           +      candidateWords: ['words', 'and', 'moar', 'wordz'],
@@ -50564,12 +50503,11 @@ steps:
           +  });
           +
           +  test('WorkQueue from down word', () {
-          +    Crossword crossword =
-          +        Crossword.crossword(width: 50, height: 50).addWord(
-          +          direction: Direction.down,
-          +          location: Location.at(0, 0),
-          +          word: 'word',
-          +        )!;
+          +    Crossword crossword = Crossword.crossword(width: 50, height: 50).addWord(
+          +      direction: Direction.down,
+          +      location: Location.at(0, 0),
+          +      word: 'word',
+          +    )!;
           +
           +    WorkQueue queue = WorkQueue.from(
           +      crossword: crossword,
@@ -50592,18 +50530,17 @@ steps:
           +  });
           +
           +  test('WorkQueue from two words', () {
-          +    Crossword crossword =
-          +        Crossword.crossword(width: 50, height: 50)
-          +            .addWord(
-          +              direction: Direction.across,
-          +              location: Location.at(0, 0),
-          +              word: 'word',
-          +            )!
-          +            .addWord(
-          +              direction: Direction.down,
-          +              location: Location.at(0, 0),
-          +              word: 'work',
-          +            )!;
+          +    Crossword crossword = Crossword.crossword(width: 50, height: 50)
+          +        .addWord(
+          +          direction: Direction.across,
+          +          location: Location.at(0, 0),
+          +          word: 'word',
+          +        )!
+          +        .addWord(
+          +          direction: Direction.down,
+          +          location: Location.at(0, 0),
+          +          word: 'work',
+          +        )!;
           +
           +    WorkQueue queue = WorkQueue.from(
           +      crossword: crossword,
@@ -50624,18 +50561,17 @@ steps:
           +  });
           +
           +  test('WorkQueue removes used words from candidate list', () {
-          +    Crossword crossword =
-          +        Crossword.crossword(width: 50, height: 50)
-          +            .addWord(
-          +              direction: Direction.across,
-          +              location: Location.at(0, 0),
-          +              word: 'word',
-          +            )!
-          +            .addWord(
-          +              direction: Direction.down,
-          +              location: Location.at(0, 0),
-          +              word: 'work',
-          +            )!;
+          +    Crossword crossword = Crossword.crossword(width: 50, height: 50)
+          +        .addWord(
+          +          direction: Direction.across,
+          +          location: Location.at(0, 0),
+          +          word: 'word',
+          +        )!
+          +        .addWord(
+          +          direction: Direction.down,
+          +          location: Location.at(0, 0),
+          +          word: 'work',
+          +        )!;
           +
           +    WorkQueue queue = WorkQueue.from(
           +      crossword: crossword,
@@ -50650,7 +50586,7 @@ steps:
         patch: |
           --- b/generate_crossword/step_06/lib/model.dart
           +++ a/generate_crossword/step_06/lib/model.dart
-          @@ -400,6 +400,120 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
+          @@ -396,6 +396,119 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
              Crossword._();
            }
            
@@ -50720,8 +50656,9 @@ steps:
           +          .forEach((location, character) {
           +            b.locationsToTry.addAll({
           +              location: switch ((character.acrossWord, character.downWord)) {
-          +                (null, null) =>
-          +                  throw StateError('Character is not part of a word'),
+          +                (null, null) => throw StateError(
+          +                  'Character is not part of a word',
+          +                ),
           +                (null, _) => Direction.across,
           +                (_, null) => Direction.down,
           +                (_, _) => throw StateError('Character is part of two words'),
@@ -50732,29 +50669,27 @@ steps:
           +  });
           +
           +  WorkQueue remove(Location location) => rebuild(
-          +    (b) =>
-          +        b
-          +          ..locationsToTry.remove(location)
-          +          ..badLocations.add(location),
+          +    (b) => b
+          +      ..locationsToTry.remove(location)
+          +      ..badLocations.add(location),
           +  );
           +
           +  /// Update the work queue from a crossword derived from the current crossword
           +  /// that this work queue is built from.
-          +  WorkQueue updateFrom(final Crossword crossword) => WorkQueue.from(
-          +    crossword: crossword,
-          +    candidateWords: candidateWords,
-          +    startLocation:
-          +        locationsToTry.isNotEmpty
+          +  WorkQueue updateFrom(final Crossword crossword) =>
+          +      WorkQueue.from(
+          +        crossword: crossword,
+          +        candidateWords: candidateWords,
+          +        startLocation: locationsToTry.isNotEmpty
           +            ? locationsToTry.keys.first
           +            : Location.at(0, 0),
-          +  ).rebuild(
-          +    (b) =>
-          +        b
+          +      ).rebuild(
+          +        (b) => b
           +          ..badLocations.addAll(badLocations)
           +          ..locationsToTry.removeWhere(
           +            (location, _) => badLocations.contains(location),
           +          ),
-          +  );
+          +      );
           +
           +  /// Factory constructor for [WorkQueue]
           +  factory WorkQueue([void Function(WorkQueueBuilder)? updates]) = _$WorkQueue;
@@ -50803,7 +50738,7 @@ steps:
         patch: |
           --- b/generate_crossword/step_06/lib/isolates.dart
           +++ a/generate_crossword/step_06/lib/isolates.dart
-          @@ -2,44 +2,78 @@
+          @@ -2,44 +2,77 @@
            // Use of this source code is governed by a BSD-style license that can be
            // found in the LICENSE file.
            
@@ -50857,10 +50792,9 @@ steps:
           +          );
           +        }
           +        var words = workQueue.candidateWords.toBuiltList().rebuild(
-          +          (b) =>
-          +              b
-          +                ..where((b) => b.characters.contains(target.character))
-          +                ..shuffle(),
+          +          (b) => b
+          +            ..where((b) => b.characters.contains(target.character))
+          +            ..shuffle(),
                    );
           -      }, (word, direction, location));
           +        int tryCount = 0;
@@ -50906,28 +50840,12 @@ steps:
       - name: Run build_runner
         path: generate_crossword
         dart: run build_runner build --delete-conflicting-outputs
-      - name: format model.g.dart
+      - name: dart format lib/model.g.dart lib/providers.g.dart
         path: generate_crossword
-        dart: format lib/model.g.dart
+        dart: format lib/model.g.dart lib/providers.g.dart
       - name: Flutter test
         path: generate_crossword
         flutter: test
-      - name: Build iOS simulator app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build ios --simulator
-      - name: workaround pt 1
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: clean   
-      - name: workaround pt 2
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: pub get
-      - name: Build macOS app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build macos
       - name: Copy step_06
         copydir:
           from: generate_crossword
@@ -50952,7 +50870,7 @@ steps:
            
            part 'model.g.dart';
            
-          @@ -508,6 +509,62 @@ abstract class WorkQueue implements Built<WorkQueue, WorkQueueBuilder> {
+          @@ -503,6 +504,57 @@ abstract class WorkQueue implements Built<WorkQueue, WorkQueueBuilder> {
              WorkQueue._();
            }
            
@@ -50979,32 +50897,27 @@ steps:
           +  factory DisplayInfo.from({required WorkQueue workQueue}) {
           +    final gridFilled =
           +        (workQueue.crossword.characters.length /
-          +            (workQueue.crossword.width * workQueue.crossword.height));
+          +        (workQueue.crossword.width * workQueue.crossword.height));
           +    final fmt = NumberFormat.decimalPattern();
           +
           +    return DisplayInfo(
-          +      (b) =>
-          +          b
-          +            ..wordsInGridCount = fmt.format(workQueue.crossword.words.length)
-          +            ..candidateWordsCount = fmt.format(workQueue.candidateWords.length)
-          +            ..locationsToExploreCount = fmt.format(
-          +              workQueue.locationsToTry.length,
-          +            )
-          +            ..knownBadLocationsCount = fmt.format(workQueue.badLocations.length)
-          +            ..gridFilledPercentage =
-          +                '${(gridFilled * 100).toStringAsFixed(2)}%',
+          +      (b) => b
+          +        ..wordsInGridCount = fmt.format(workQueue.crossword.words.length)
+          +        ..candidateWordsCount = fmt.format(workQueue.candidateWords.length)
+          +        ..locationsToExploreCount = fmt.format(workQueue.locationsToTry.length)
+          +        ..knownBadLocationsCount = fmt.format(workQueue.badLocations.length)
+          +        ..gridFilledPercentage = '${(gridFilled * 100).toStringAsFixed(2)}%',
           +    );
           +  }
           +
           +  /// An empty [DisplayInfo] instance.
           +  static DisplayInfo get empty => DisplayInfo(
-          +    (b) =>
-          +        b
-          +          ..wordsInGridCount = '0'
-          +          ..candidateWordsCount = '0'
-          +          ..locationsToExploreCount = '0'
-          +          ..knownBadLocationsCount = '0'
-          +          ..gridFilledPercentage = '0%',
+          +    (b) => b
+          +      ..wordsInGridCount = '0'
+          +      ..candidateWordsCount = '0'
+          +      ..locationsToExploreCount = '0'
+          +      ..knownBadLocationsCount = '0'
+          +      ..gridFilledPercentage = '0%',
           +  );
           +
           +  factory DisplayInfo([void Function(DisplayInfoBuilder)? updates]) =
@@ -51015,7 +50928,7 @@ steps:
            /// Construct the serialization/deserialization code for the data model.
            @SerializersFor([
              Location,
-          @@ -515,5 +572,6 @@ abstract class WorkQueue implements Built<WorkQueue, WorkQueueBuilder> {
+          @@ -510,5 +562,6 @@ abstract class WorkQueue implements Built<WorkQueue, WorkQueueBuilder> {
              CrosswordWord,
              CrosswordCharacter,
              WorkQueue,
@@ -51036,7 +50949,7 @@ steps:
              required Crossword crossword,
              required BuiltSet<String> wordList,
            }) async* {
-          @@ -64,10 +64,10 @@ Stream<Crossword> exploreCrosswordSolutions({
+          @@ -63,10 +63,10 @@ Stream<Crossword> exploreCrosswordSolutions({
                  }, (workQueue, location));
                  if (crossword != null) {
                    workQueue = workQueue.updateFrom(crossword);
@@ -51061,7 +50974,7 @@ steps:
            
            import 'package:built_collection/built_collection.dart';
            import 'package:flutter/foundation.dart';
-          @@ -67,14 +68,21 @@ class Size extends _$Size {
+          @@ -66,14 +67,21 @@ class Size extends _$Size {
            }
            
            @riverpod
@@ -51084,9 +50997,9 @@ steps:
           +  ref.read(endTimeProvider.notifier).clear();
            
              yield* wordListAsync.when(
-               data:
-          @@ -84,10 +92,103 @@ Stream<model.Crossword> crossword(Ref ref) async* {
-                   ),
+               data: (wordList) => exploreCrosswordSolutions(
+          @@ -82,10 +90,103 @@ Stream<model.Crossword> crossword(Ref ref) async* {
+               ),
                error: (error, stackTrace) async* {
                  debugPrint('Error loading word list: $error');
           -      yield emptyCrossword;
@@ -51326,11 +51239,10 @@ steps:
                                   value: 'Not started yet',
                                 ),
                                 (DateTime start, null) => TickerBuilder(
-                                  builder:
-                                      (context) => _CrosswordInfoRichText(
-                                        label: 'Time elapsed',
-                                        value: DateTime.now().difference(start).formatted,
-                                      ),
+                                  builder: (context) => _CrosswordInfoRichText(
+                                    label: 'Time elapsed',
+                                    value: DateTime.now().difference(start).formatted,
+                                  ),
                                 ),
                                 (DateTime start, DateTime end) => _CrosswordInfoRichText(
                                   label: 'Completed in',
@@ -51407,46 +51319,29 @@ steps:
                  ),
                );
              }
-          @@ -54,6 +66,14 @@ class _CrosswordGeneratorMenu extends ConsumerWidget {
-                             : Icon(Icons.radio_button_unchecked_outlined),
+          @@ -53,6 +65,13 @@ class _CrosswordGeneratorMenu extends ConsumerWidget {
+                         : Icon(Icons.radio_button_unchecked_outlined),
                      child: Text(entry.label),
                    ),
           +      MenuItemButton(
-          +        leadingIcon:
-          +            ref.watch(showDisplayInfoProvider)
-          +                ? Icon(Icons.check_box_outlined)
-          +                : Icon(Icons.check_box_outline_blank_outlined),
+          +        leadingIcon: ref.watch(showDisplayInfoProvider)
+          +            ? Icon(Icons.check_box_outlined)
+          +            : Icon(Icons.check_box_outline_blank_outlined),
           +        onPressed: () => ref.read(showDisplayInfoProvider.notifier).toggle(),
           +        child: Text('Display Info'),
           +      ),
                ],
-               builder:
-                   (context, controller, child) => IconButton(
+               builder: (context, controller, child) => IconButton(
+                 onPressed: () => controller.open(),
       - name: Run build_runner
         path: generate_crossword
         dart: run build_runner build --delete-conflicting-outputs
-      - name: format model.g.dart lib/providers.g.dart
+      - name: dart format lib/model.g.dart lib/providers.g.dart
         path: generate_crossword
         dart: format lib/model.g.dart lib/providers.g.dart
       - name: Flutter test
         path: generate_crossword
         flutter: test
-      - name: Build iOS simulator app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build ios --simulator
-      - name: workaround pt 1
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: clean   
-      - name: workaround pt 2
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: pub get
-      - name: Build macOS app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build macos
       - name: Copy step_07
         copydir:
           from: generate_crossword
@@ -51463,16 +51358,15 @@ steps:
         patch: |
           --- b/generate_crossword/step_08/lib/widgets/crossword_widget.dart
           +++ a/generate_crossword/step_08/lib/widgets/crossword_widget.dart
-          @@ -41,16 +41,38 @@ class CrosswordWidget extends ConsumerWidget {
+          @@ -41,16 +41,35 @@ class CrosswordWidget extends ConsumerWidget {
                        ),
                      );
            
           +          final explorationCell = ref.watch(
           +            workQueueProvider.select(
           +              (workQueueAsync) => workQueueAsync.when(
-          +                data:
-          +                    (workQueue) =>
-          +                        workQueue.locationsToTry.keys.contains(location),
+          +                data: (workQueue) =>
+          +                    workQueue.locationsToTry.keys.contains(location),
           +                error: (error, stackTrace) => false,
           +                loading: () => false,
           +              ),
@@ -51485,10 +51379,9 @@ steps:
           +            return AnimatedContainer(
           +              duration: Durations.extralong1,
           +              curve: Curves.easeInOut,
-          +              color:
-          +                  explorationCell
-          +                      ? Theme.of(context).colorScheme.primary
-          +                      : Theme.of(context).colorScheme.onPrimary,
+          +              color: explorationCell
+          +                  ? Theme.of(context).colorScheme.primary
+          +                  : Theme.of(context).colorScheme.onPrimary,
                          child: Center(
           -                child: Text(
           -                  character.character,
@@ -51498,10 +51391,9 @@ steps:
                              style: TextStyle(
                                fontSize: 24,
           -                    color: Theme.of(context).colorScheme.primary,
-          +                    color:
-          +                        explorationCell
-          +                            ? Theme.of(context).colorScheme.onPrimary
-          +                            : Theme.of(context).colorScheme.primary,
+          +                    color: explorationCell
+          +                        ? Theme.of(context).colorScheme.onPrimary
+          +                        : Theme.of(context).colorScheme.primary,
                              ),
           +                  child: Text(character.character),
                            ),
@@ -51520,7 +51412,7 @@ steps:
            }) async* {
              final start = DateTime.now();
              var workQueue = WorkQueue.from(
-          @@ -20,60 +21,116 @@ Stream<WorkQueue> exploreCrosswordSolutions({
+          @@ -20,59 +21,114 @@ Stream<WorkQueue> exploreCrosswordSolutions({
                startLocation: Location.at(0, 0),
              );
              while (!workQueue.isCompleted) {
@@ -51538,10 +51430,9 @@ steps:
           -          );
           -        }
           -        var words = workQueue.candidateWords.toBuiltList().rebuild(
-          -          (b) =>
-          -              b
-          -                ..where((b) => b.characters.contains(target.character))
-          -                ..shuffle(),
+          -          (b) => b
+          -            ..where((b) => b.characters.contains(target.character))
+          -            ..shuffle(),
           -        );
           -        int tryCount = 0;
           -        for (final word in words) {
@@ -51567,10 +51458,9 @@ steps:
           +  var (workQueue, maxWorkerCount) = workMessage;
           +  final candidateGeneratorFutures = <Future<(Location, Direction, String?)>>[];
           +  final locations = workQueue.locationsToTry.keys.toBuiltList().rebuild(
-          +    (b) =>
-          +        b
-          +          ..shuffle()
-          +          ..take(maxWorkerCount),
+          +    (b) => b
+          +      ..shuffle()
+          +      ..take(maxWorkerCount),
           +  );
           +
           +  for (final location in locations) {
@@ -51649,10 +51539,9 @@ steps:
           +  // Filter down the candidate word list to those that contain the letter
           +  // at the current location
           +  final words = candidateWords.toBuiltList().rebuild(
-          +    (b) =>
-          +        b
-          +          ..where((b) => b.characters.contains(target.character))
-          +          ..shuffle(),
+          +    (b) => b
+          +      ..where((b) => b.characters.contains(target.character))
+          +      ..shuffle(),
              );
           +  int tryCount = 0;
           +  final start = DateTime.now();
@@ -51689,7 +51578,7 @@ steps:
         patch: |
           --- b/generate_crossword/step_08/lib/providers.dart
           +++ a/generate_crossword/step_08/lib/providers.dart
-          @@ -69,6 +69,7 @@ class Size extends _$Size {
+          @@ -68,6 +68,7 @@ class Size extends _$Size {
            
            @riverpod
            Stream<model.WorkQueue> workQueue(Ref ref) async* {
@@ -51697,15 +51586,15 @@ steps:
              final size = ref.watch(sizeProvider);
              final wordListAsync = ref.watch(wordListProvider);
              final emptyCrossword = model.Crossword.crossword(
-          @@ -89,6 +90,7 @@ Stream<model.WorkQueue> workQueue(Ref ref) async* {
-                   (wordList) => exploreCrosswordSolutions(
-                     crossword: emptyCrossword,
-                     wordList: wordList,
-          +          maxWorkerCount: workers.count,
-                   ),
+          @@ -87,6 +88,7 @@ Stream<model.WorkQueue> workQueue(Ref ref) async* {
+               data: (wordList) => exploreCrosswordSolutions(
+                 crossword: emptyCrossword,
+                 wordList: wordList,
+          +      maxWorkerCount: workers.count,
+               ),
                error: (error, stackTrace) async* {
                  debugPrint('Error loading word list: $error');
-          @@ -192,3 +194,33 @@ class DisplayInfo extends _$DisplayInfo {
+          @@ -190,3 +192,33 @@ class DisplayInfo extends _$DisplayInfo {
                    loading: () => model.DisplayInfo.empty,
                  );
            }
@@ -51768,48 +51657,31 @@ steps:
         patch: |
           --- b/generate_crossword/step_08/lib/widgets/crossword_generator_app.dart
           +++ a/generate_crossword/step_08/lib/widgets/crossword_generator_app.dart
-          @@ -74,6 +74,16 @@ class _CrosswordGeneratorMenu extends ConsumerWidget {
+          @@ -72,6 +72,15 @@ class _CrosswordGeneratorMenu extends ConsumerWidget {
                    onPressed: () => ref.read(showDisplayInfoProvider.notifier).toggle(),
                    child: Text('Display Info'),
                  ),
           +      for (final count in BackgroundWorkers.values)
           +        MenuItemButton(
-          +          leadingIcon:
-          +              count == ref.watch(workerCountProvider)
-          +                  ? Icon(Icons.radio_button_checked_outlined)
-          +                  : Icon(Icons.radio_button_unchecked_outlined),
-          +          onPressed:
-          +              () => ref.read(workerCountProvider.notifier).setCount(count),
+          +          leadingIcon: count == ref.watch(workerCountProvider)
+          +              ? Icon(Icons.radio_button_checked_outlined)
+          +              : Icon(Icons.radio_button_unchecked_outlined),
+          +          onPressed: () =>
+          +              ref.read(workerCountProvider.notifier).setCount(count),
           +          child: Text(count.label),
           +        ),
                ],
-               builder:
-                   (context, controller, child) => IconButton(
+               builder: (context, controller, child) => IconButton(
+                 onPressed: () => controller.open(),
       - name: Run build_runner
         path: generate_crossword
         dart: run build_runner build --delete-conflicting-outputs
-      - name: format model.g.dart lib/providers.g.dart
+      - name: dart format lib/model.g.dart lib/providers.g.dart
         path: generate_crossword
         dart: format lib/model.g.dart lib/providers.g.dart
       - name: Flutter test
         path: generate_crossword
         flutter: test
-      - name: Build iOS simulator app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build ios --simulator
-      - name: workaround pt 1
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: clean   
-      - name: workaround pt 2
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: pub get
-      - name: Build macOS app
-        platforms: [ macos ]
-        path: generate_crossword
-        flutter: build macos
       - name: Copy step_08
         copydir:
           from: generate_crossword
@@ -51834,7 +51706,7 @@ steps:
            import 'package:flutter_test/flutter_test.dart';
            import 'package:generate_crossword/model.dart';
            
-          @@ -515,4 +516,339 @@ void main() {
+          @@ -497,4 +498,335 @@ void main() {
                );
                expect(queue.candidateWords.length, equals(0));
              });
@@ -51863,11 +51735,10 @@ steps:
           +        .split('\n')
           +        .toBuiltSet()
           +        .rebuild(
-          +          (b) =>
-          +              b
-          +                ..map((str) => str.toLowerCase().trim())
-          +                ..removeWhere((str) => str.length < 3)
-          +                ..removeWhere((str) => re.stringMatch(str) == null),
+          +          (b) => b
+          +            ..map((str) => str.toLowerCase().trim())
+          +            ..removeWhere((str) => str.length < 3)
+          +            ..removeWhere((str) => re.stringMatch(str) == null),
           +        );
           +
           +    final puzzle = CrosswordPuzzleGame.from(
@@ -51946,20 +51817,19 @@ steps:
           +
           +      final topLeft = Location.at(0, 0);
           +
-          +      crossword =
-          +          crossword
-          +              .addWord(
-          +                location: topLeft,
-          +                word: 'this',
-          +                direction: Direction.down,
-          +                requireOverlap: false,
-          +              )!
-          +              .addWord(
-          +                location: topLeft,
-          +                word: 'total',
-          +                direction: Direction.across,
-          +                requireOverlap: false,
-          +              )!;
+          +      crossword = crossword
+          +          .addWord(
+          +            location: topLeft,
+          +            word: 'this',
+          +            direction: Direction.down,
+          +            requireOverlap: false,
+          +          )!
+          +          .addWord(
+          +            location: topLeft,
+          +            word: 'total',
+          +            direction: Direction.across,
+          +            requireOverlap: false,
+          +          )!;
           +
           +      expect(crossword.valid, isTrue);
           +
@@ -52051,11 +51921,10 @@ steps:
           +        .split('\n')
           +        .toBuiltSet()
           +        .rebuild(
-          +          (b) =>
-          +              b
-          +                ..map((str) => str.toLowerCase().trim())
-          +                ..removeWhere((str) => str.length < 3)
-          +                ..removeWhere((str) => re.stringMatch(str) == null),
+          +          (b) => b
+          +            ..map((str) => str.toLowerCase().trim())
+          +            ..removeWhere((str) => str.length < 3)
+          +            ..removeWhere((str) => re.stringMatch(str) == null),
           +        );
           +
           +    CrosswordPuzzleGame? puzzle = CrosswordPuzzleGame.from(
@@ -52132,11 +52001,10 @@ steps:
           +        .split('\n')
           +        .toBuiltSet()
           +        .rebuild(
-          +          (b) =>
-          +              b
-          +                ..map((str) => str.toLowerCase().trim())
-          +                ..removeWhere((str) => str.length < 3)
-          +                ..removeWhere((str) => re.stringMatch(str) == null),
+          +          (b) => b
+          +            ..map((str) => str.toLowerCase().trim())
+          +            ..removeWhere((str) => str.length < 3)
+          +            ..removeWhere((str) => re.stringMatch(str) == null),
           +        );
           +
           +    CrosswordPuzzleGame? puzzle = CrosswordPuzzleGame.from(
@@ -52179,7 +52047,7 @@ steps:
         patch: |
           --- b/generate_crossword/step_09/lib/model.dart
           +++ a/generate_crossword/step_09/lib/model.dart
-          @@ -255,6 +255,7 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
+          @@ -254,6 +254,7 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
                required Location location,
                required String word,
                required Direction direction,
@@ -52187,7 +52055,7 @@ steps:
              }) {
                // Require that the word is not already in the crossword.
                if (words.map((crosswordWord) => crosswordWord.word).contains(word)) {
-          @@ -283,7 +284,10 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
+          @@ -282,7 +283,10 @@ abstract class Crossword implements Built<Crossword, CrosswordBuilder> {
                    }
                  }
                }
@@ -52199,7 +52067,7 @@ steps:
                  return null;
                }
            
-          @@ -565,6 +569,196 @@ abstract class DisplayInfo implements Built<DisplayInfo, DisplayInfoBuilder> {
+          @@ -555,6 +559,192 @@ abstract class DisplayInfo implements Built<DisplayInfo, DisplayInfoBuilder> {
              DisplayInfo._();
            }
            
@@ -52239,13 +52107,12 @@ steps:
           +        .where((b) => b.direction == direction && b.location == location)
           +        .isNotEmpty) {
           +      puzzle = puzzle.rebuild(
-          +        (b) =>
-          +            b
-          +              ..selectedWords.removeWhere(
-          +                (selectedWord) =>
-          +                    selectedWord.location == location &&
-          +                    selectedWord.direction == direction,
-          +              ),
+          +        (b) => b
+          +          ..selectedWords.removeWhere(
+          +            (selectedWord) =>
+          +                selectedWord.location == location &&
+          +                selectedWord.direction == direction,
+          +          ),
           +      );
           +    }
           +
@@ -52279,13 +52146,12 @@ steps:
           +        .where((b) => b.direction == direction && b.location == location)
           +        .isNotEmpty) {
           +      puzzle = puzzle.rebuild(
-          +        (b) =>
-          +            b
-          +              ..selectedWords.removeWhere(
-          +                (selectedWord) =>
-          +                    selectedWord.location == location &&
-          +                    selectedWord.direction == direction,
-          +              ),
+          +        (b) => b
+          +          ..selectedWords.removeWhere(
+          +            (selectedWord) =>
+          +                selectedWord.location == location &&
+          +                selectedWord.direction == direction,
+          +          ),
           +      );
           +    }
           +
@@ -52306,15 +52172,14 @@ steps:
           +      if (puzzle.crossword.words.contains(crosswordWord) ||
           +          puzzle.alternateWords[location]?[direction]?.contains(word) == true) {
           +        return puzzle.rebuild(
-          +          (b) =>
-          +              b
-          +                ..selectedWords.add(
-          +                  CrosswordWord.word(
-          +                    word: word,
-          +                    location: location,
-          +                    direction: direction,
-          +                  ),
-          +                ),
+          +          (b) => b
+          +            ..selectedWords.add(
+          +              CrosswordWord.word(
+          +                word: word,
+          +                location: location,
+          +                direction: direction,
+          +              ),
+          +            ),
           +        );
           +      }
           +    }
@@ -52353,12 +52218,11 @@ steps:
           +    // Build the alternate words for each word in the crossword
           +    for (final crosswordWord in crossword.words) {
           +      final alternateWords = candidateWords.toBuiltList().rebuild(
-          +        (b) =>
-          +            b
-          +              ..where((b) => b.length == crosswordWord.word.length)
-          +              ..shuffle()
-          +              ..take(4)
-          +              ..sort(),
+          +        (b) => b
+          +          ..where((b) => b.length == crosswordWord.word.length)
+          +          ..shuffle()
+          +          ..take(4)
+          +          ..sort(),
           +      );
           +
           +      candidateWords = candidateWords.rebuild(
@@ -52396,7 +52260,7 @@ steps:
            /// Construct the serialization/deserialization code for the data model.
            @SerializersFor([
              Location,
-          @@ -573,5 +767,6 @@ abstract class DisplayInfo implements Built<DisplayInfo, DisplayInfoBuilder> {
+          @@ -563,5 +753,6 @@ abstract class DisplayInfo implements Built<DisplayInfo, DisplayInfoBuilder> {
              CrosswordCharacter,
              WorkQueue,
              DisplayInfo,
@@ -52425,7 +52289,7 @@ steps:
            /// A provider for the wordlist to use when generating the crossword.
            @riverpod
            Future<BuiltSet<String>> wordList(Ref ref) async {
-          @@ -69,7 +70,6 @@ class Size extends _$Size {
+          @@ -68,7 +69,6 @@ class Size extends _$Size {
            
            @riverpod
            Stream<model.WorkQueue> workQueue(Ref ref) async* {
@@ -52433,7 +52297,7 @@ steps:
              final size = ref.watch(sizeProvider);
              final wordListAsync = ref.watch(wordListProvider);
              final emptyCrossword = model.Crossword.crossword(
-          @@ -82,15 +82,12 @@ Stream<model.WorkQueue> workQueue(Ref ref) async* {
+          @@ -81,14 +81,11 @@ Stream<model.WorkQueue> workQueue(Ref ref) async* {
                startLocation: model.Location.at(0, 0),
              );
            
@@ -52441,16 +52305,15 @@ steps:
           -  ref.read(endTimeProvider.notifier).clear();
           -
              yield* wordListAsync.when(
-               data:
-                   (wordList) => exploreCrosswordSolutions(
-                     crossword: emptyCrossword,
-                     wordList: wordList,
-          -          maxWorkerCount: workers.count,
-          +          maxWorkerCount: backgroundWorkerCount,
-                   ),
+               data: (wordList) => exploreCrosswordSolutions(
+                 crossword: emptyCrossword,
+                 wordList: wordList,
+          -      maxWorkerCount: workers.count,
+          +      maxWorkerCount: backgroundWorkerCount,
+               ),
                error: (error, stackTrace) async* {
                  debugPrint('Error loading word list: $error');
-          @@ -100,127 +97,80 @@ Stream<model.WorkQueue> workQueue(Ref ref) async* {
+          @@ -98,127 +95,80 @@ Stream<model.WorkQueue> workQueue(Ref ref) async* {
                  yield emptyWorkQueue;
                },
              );
@@ -52725,18 +52588,16 @@ steps:
                 for (final entry in CrosswordSize.values)
                   MenuItemButton(
                     onPressed: () => ref.read(sizeProvider.notifier).setSize(entry),
-                    leadingIcon:
-                        entry == ref.watch(sizeProvider)
-                            ? Icon(Icons.radio_button_checked_outlined)
-                            : Icon(Icons.radio_button_unchecked_outlined),
+                    leadingIcon: entry == ref.watch(sizeProvider)
+                        ? Icon(Icons.radio_button_checked_outlined)
+                        : Icon(Icons.radio_button_unchecked_outlined),
                     child: Text(entry.label),
                   ),
               ],
-              builder:
-                  (context, controller, child) => IconButton(
-                    onPressed: () => controller.open(),
-                    icon: Icon(Icons.settings),
-                  ),
+              builder: (context, controller, child) => IconButton(
+                onPressed: () => controller.open(),
+                icon: Icon(Icons.settings),
+              ),
             );
           }
       - name: Add lib/widgets/crossword_generator_widget.dart
@@ -52788,9 +52649,8 @@ steps:
                     final explorationCell = ref.watch(
                       workQueueProvider.select(
                         (workQueueAsync) => workQueueAsync.when(
-                          data:
-                              (workQueue) =>
-                                  workQueue.locationsToTry.keys.contains(location),
+                          data: (workQueue) =>
+                              workQueue.locationsToTry.keys.contains(location),
                           error: (error, stackTrace) => false,
                           loading: () => false,
                         ),
@@ -52801,20 +52661,18 @@ steps:
                       return AnimatedContainer(
                         duration: Durations.extralong1,
                         curve: Curves.easeInOut,
-                        color:
-                            explorationCell
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onPrimary,
+                        color: explorationCell
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onPrimary,
                         child: Center(
                           child: AnimatedDefaultTextStyle(
                             duration: Durations.extralong1,
                             curve: Curves.easeInOut,
                             style: TextStyle(
                               fontSize: 24,
-                              color:
-                                  explorationCell
-                                      ? Theme.of(context).colorScheme.onPrimary
-                                      : Theme.of(context).colorScheme.primary,
+                              color: explorationCell
+                                  ? Theme.of(context).colorScheme.onPrimary
+                                  : Theme.of(context).colorScheme.primary,
                             ),
                             child: Text('•'), // https://www.compart.com/en/unicode/U+2022
                           ),
@@ -52903,15 +52761,14 @@ steps:
                       var acrossWords = BuiltList<String>();
                       if (acrossWord != null) {
                         acrossWords = acrossWords.rebuild(
-                          (b) =>
-                              b
-                                ..add(acrossWord.word)
-                                ..addAll(
-                                  alternateWords[acrossWord.location]?[acrossWord
-                                          .direction] ??
-                                      [],
-                                )
-                                ..sort(),
+                          (b) => b
+                            ..add(acrossWord.word)
+                            ..addAll(
+                              alternateWords[acrossWord.location]?[acrossWord
+                                      .direction] ??
+                                  [],
+                            )
+                            ..sort(),
                         );
                       }
 
@@ -52919,24 +52776,21 @@ steps:
                       var downWords = BuiltList<String>();
                       if (downWord != null) {
                         downWords = downWords.rebuild(
-                          (b) =>
-                              b
-                                ..add(downWord.word)
-                                ..addAll(
-                                  alternateWords[downWord.location]?[downWord
-                                          .direction] ??
-                                      [],
-                                )
-                                ..sort(),
+                          (b) => b
+                            ..add(downWord.word)
+                            ..addAll(
+                              alternateWords[downWord.location]?[downWord.direction] ??
+                                  [],
+                            )
+                            ..sort(),
                         );
                       }
 
                       return MenuAnchor(
                         builder: (context, controller, _) {
                           return GestureDetector(
-                            onTapDown:
-                                (details) =>
-                                    controller.open(position: details.localPosition),
+                            onTapDown: (details) =>
+                                controller.open(position: details.localPosition),
                             child: AnimatedContainer(
                               duration: Durations.extralong1,
                               curve: Curves.easeInOut,
@@ -53028,27 +52882,27 @@ steps:
               return MenuItemButton(
                 onPressed:
                     ref.watch(
-                          puzzleProvider.select(
-                            (puzzle) => puzzle.canSelectWord(
-                              location: location,
-                              word: word,
-                              direction: direction,
-                            ),
-                          ),
-                        )
-                        ? () => notifier.selectWord(
+                      puzzleProvider.select(
+                        (puzzle) => puzzle.canSelectWord(
                           location: location,
                           word: word,
                           direction: direction,
-                        )
-                        : null,
+                        ),
+                      ),
+                    )
+                    ? () => notifier.selectWord(
+                        location: location,
+                        word: word,
+                        direction: direction,
+                      )
+                    : null,
                 leadingIcon:
                     switch (direction) {
-                          Direction.across => selectedCharacter?.acrossWord?.word == word,
-                          Direction.down => selectedCharacter?.downWord?.word == word,
-                        }
-                        ? Icon(Icons.radio_button_checked_outlined)
-                        : Icon(Icons.radio_button_unchecked_outlined),
+                      Direction.across => selectedCharacter?.acrossWord?.word == word,
+                      Direction.down => selectedCharacter?.downWord?.word == word,
+                    }
+                    ? Icon(Icons.radio_button_checked_outlined)
+                    : Icon(Icons.radio_button_unchecked_outlined),
                 child: Text(word),
               );
             }
@@ -53106,7 +52960,7 @@ steps:
       - name: Run build_runner
         path: generate_crossword
         dart: run build_runner build --delete-conflicting-outputs
-      - name: format model.g.dart lib/providers.g.dart
+      - name: dart format lib/model.g.dart lib/providers.g.dart
         path: generate_crossword
         dart: format lib/model.g.dart lib/providers.g.dart
       - name: Flutter test

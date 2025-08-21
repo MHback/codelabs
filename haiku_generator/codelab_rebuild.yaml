@@ -22,6 +22,21 @@ steps:
           # Haiku generator demo app
           
           This folder contains the code for [Generative AI](https://developers.generativeai.google/) + Flutter codelab.
+      - name: Add .gemini directory
+        mkdir: haiku_generator/.gemini
+      - name: Add .gemini/settings.json
+        path: haiku_generator/.gemini/settings.json
+        replace-contents: |
+          {
+              "mcpServers": {
+                  "dart": {
+                      "command": "dart",
+                      "args": [
+                          "mcp-server"
+                      ]
+                  }
+              }
+          }
       - name: Add ui.png
         path: haiku_generator/ui.png
         base64-contents: |
@@ -3539,13 +3554,12 @@ steps:
                   SizedBox(
                     width: 150.0,
                     child: DropdownButton<Product>(
-                      items:
-                          listProduct.map((value) {
-                            return DropdownMenuItem<Product>(
-                              value: value,
-                              child: Text(value.productName),
-                            );
-                          }).toList(),
+                      items: listProduct.map((value) {
+                        return DropdownMenuItem<Product>(
+                          value: value,
+                          child: Text(value.productName),
+                        );
+                      }).toList(),
                       hint: Text(
                         productName.toString(),
                         style: const TextStyle(color: Colors.deepPurpleAccent),
@@ -3583,39 +3597,38 @@ steps:
 
             Expanded buildBottomView() {
               return Expanded(
-                child:
-                    haikuText.isNotEmpty
-                        ? Container(
-                          decoration: BoxDecoration(
-                            color: Colors.amberAccent.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: SizedBox(
-                              width: double.maxFinite,
-                              child: Text(
-                                haikuText,
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w300,
-                                ),
+                child: haikuText.isNotEmpty
+                    ? Container(
+                        decoration: BoxDecoration(
+                          color: Colors.amberAccent.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: SizedBox(
+                            width: double.maxFinite,
+                            child: Text(
+                              haikuText,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w300,
                               ),
                             ),
                           ),
-                        )
-                        : ShimmerLoadingAnim(
-                          isLoading: true,
-                          child: Container(
-                            height: double.maxFinite,
-                            width: double.maxFinite,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE5E5E5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                        ),
+                      )
+                    : ShimmerLoadingAnim(
+                        isLoading: true,
+                        child: Container(
+                          height: double.maxFinite,
+                          width: double.maxFinite,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE5E5E5),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
+                      ),
               );
             }
           }

@@ -9,6 +9,21 @@ steps:
       - name: Update dependencies
         path: window_to_front
         flutter: pub upgrade --major-versions
+      - name: Add .gemini directory
+        mkdir: window_to_front/.gemini
+      - name: Add .gemini/settings.json
+        path: window_to_front/.gemini/settings.json
+        replace-contents: |
+          {
+              "mcpServers": {
+                  "dart": {
+                      "command": "dart",
+                      "args": [
+                          "mcp-server"
+                      ]
+                  }
+              }
+          }
       - name: Replace analysis_options.yaml
         path: window_to_front/analysis_options.yaml
         replace-contents: |
@@ -411,6 +426,21 @@ steps:
           include: ../../analysis_options.yaml
       - name: Remove the README.md.
         rm: github_client/README.md
+      - name: Add .gemini directory
+        mkdir: github_client/.gemini
+      - name: Add .gemini/settings.json
+        path: github_client/.gemini/settings.json
+        replace-contents: |
+          {
+              "mcpServers": {
+                  "dart": {
+                      "command": "dart",
+                      "args": [
+                          "mcp-server"
+                      ]
+                  }
+              }
+          }
       - name: VSCode config
         mkdir: github_client/.vscode
       - name: Add launch.json
@@ -1075,10 +1105,9 @@ steps:
             @override
             initState() {
               super.initState();
-              _pullRequests =
-                  widget.gitHub.pullRequests
-                      .list(RepositorySlug('flutter', 'flutter'))
-                      .toList();
+              _pullRequests = widget.gitHub.pullRequests
+                  .list(RepositorySlug('flutter', 'flutter'))
+                  .toList();
             }
 
             late Future<List<PullRequest>> _pullRequests;
@@ -1124,19 +1153,18 @@ steps:
               if (state.mounted) {
                 return showDialog(
                   context: state.context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: const Text('Navigation error'),
-                        content: Text('Could not launch $url'),
-                        actions: <Widget>[
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('Close'),
-                          ),
-                        ],
+                  builder: (context) => AlertDialog(
+                    title: const Text('Navigation error'),
+                    content: Text('Could not launch $url'),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Close'),
                       ),
+                    ],
+                  ),
                 );
               }
             }

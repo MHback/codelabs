@@ -269,31 +269,43 @@ Future<void> _buildBlueprintStep(Directory cwd, BlueprintStep step) async {
     final macosxDeploymentTarget = step.macosxDeploymentTarget;
     late String script;
     if (xcodeAddFile != null && xcodeAddFile.isNotEmpty) {
-      script = '''
+      script =
+          '''
 require "xcodeproj"
 project = Xcodeproj::Project.open("$xcodeProjectPath")
 group = project.main_group["Runner"]
 project.targets.first.add_file_references([group.new_file("$xcodeAddFile")])
 project.save
-'''.split('\n').map((str) => "-e '$str'").join(' ');
+'''
+              .split('\n')
+              .map((str) => "-e '$str'")
+              .join(' ');
     } else if (iphoneosDeploymentTarget != null &&
         iphoneosDeploymentTarget.isNotEmpty) {
-      script = '''
+      script =
+          '''
 require "xcodeproj"
 project = Xcodeproj::Project.open("$xcodeProjectPath")
 group = project.main_group["Runner"]
 project.targets.each { |t| t.build_configurations.each { |c| c.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] ||= $iphoneosDeploymentTarget } }
 project.save
-'''.split('\n').map((str) => "-e '$str'").join(' ');
+'''
+              .split('\n')
+              .map((str) => "-e '$str'")
+              .join(' ');
     } else if (macosxDeploymentTarget != null &&
         macosxDeploymentTarget.isNotEmpty) {
-      script = '''
+      script =
+          '''
 require "xcodeproj"
 project = Xcodeproj::Project.open("$xcodeProjectPath")
 group = project.main_group["Runner"]
 project.targets.each { |t| t.build_configurations.each { |c| c.build_settings["MACOSX_DEPLOYMENT_TARGET"] ||= $macosxDeploymentTarget } }
 project.save
-'''.split('\n').map((str) => "-e '$str'").join(' ');
+'''
+              .split('\n')
+              .map((str) => "-e '$str'")
+              .join(' ');
     } else {
       _logger.severe(
         'xcode-add-file requires xcode-project-path, iphoneos-deployment-target'
@@ -400,6 +412,31 @@ project.save
   final replaceContents = step.replaceContents;
   if (replaceContents != null) {
     File(p.join(cwd.path, path)).writeAsStringSync(replaceContents);
+    return;
+  }
+
+  final protoc = step.protoc;
+  if (protoc != null) {
+    bool seenError = false;
+    final fullPath = p.canonicalize(p.join(cwd.path, path));
+    final process = await Process.start('protoc', [
+      '-I./',
+      protoc.proto,
+      '--dart_out=${protoc.output}',
+    ], workingDirectory: fullPath);
+    process.stderr.transform(utf8.decoder).listen((str) {
+      seenError = true;
+      _logger.warning(str.trimRight());
+    });
+    process.stdout.transform(utf8.decoder).listen((str) {
+      _logger.info(str.trimRight());
+    });
+    final exitCode = await process.exitCode;
+    if (exitCode != 0 || seenError) {
+      _logger.severe('patch $fullPath failed.');
+      exit(-1);
+    }
+
     return;
   }
 
